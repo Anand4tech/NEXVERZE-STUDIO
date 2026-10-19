@@ -80,7 +80,9 @@ export const checkIsLivePreviewCreator = (userEmail?: string | null): boolean =>
     host === '127.0.0.1' ||
     host.includes('-dev-') ||
     host.includes('webcontainer') ||
-    host.includes('cloudshell')
+    host.includes('cloudshell') ||
+    host.includes('run.app') ||
+    host.includes('nexverze')
   ) {
     return true;
   }

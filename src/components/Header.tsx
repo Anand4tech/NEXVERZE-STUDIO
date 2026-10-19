@@ -74,6 +74,8 @@ export const Header: React.FC<HeaderProps> = ({
     window.location.hostname.includes('dev') ||
     window.location.hostname.includes('localhost') ||
     window.location.hostname.includes('127.0.0.1') ||
+    window.location.hostname.includes('run.app') ||
+    window.location.hostname.includes('nexverze') ||
     user?.email === 'anand4earn@gmail.com'
   );
 
