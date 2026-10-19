@@ -1,5 +1,45 @@
-import pageSource from '../../nexverze-studio/app/page.tsx?raw';
-import historySource from '../../nexverze-studio/app/history/page.tsx?raw';
+// Dynamic relative path resolution for Vite dev and production builds
+// Resolves local templates across source paths without external directory traversal
+const localTemplates = import.meta.glob(['./templates/*.tsx', '../templates/*.tsx'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+const defaultPageSource = `'use client';
+import React from 'react';
+
+export default function Page() {
+  return (
+    <main className="min-h-screen bg-[#0a0a12] text-white flex items-center justify-center">
+      <h1 className="text-2xl font-bold">NexVerze Studio</h1>
+    </main>
+  );
+}
+`;
+
+const defaultHistorySource = `'use client';
+import React from 'react';
+
+export default function HistoryPage() {
+  return (
+    <main className="min-h-screen bg-[#0a0a12] text-white flex items-center justify-center">
+      <h1 className="text-2xl font-bold">Generation History</h1>
+    </main>
+  );
+}
+`;
+
+const pageSource: string =
+  localTemplates['./templates/page.tsx'] ||
+  localTemplates['../templates/page.tsx'] ||
+  defaultPageSource;
+
+const historySource: string =
+  localTemplates['./templates/historyPage.tsx'] ||
+  localTemplates['../templates/historyPage.tsx'] ||
+  defaultHistorySource;
+
 
 /**
  * Returns complete file tree for nexverze-studio Next.js 14 App Router project

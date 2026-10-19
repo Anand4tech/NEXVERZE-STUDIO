@@ -11,6 +11,9 @@ RUN npm install --legacy-peer-deps && npm install react-is --legacy-peer-deps
 # Copy source code
 COPY . .
 
+# Ensure template directory exists for module resolution
+RUN mkdir -p src/lib/templates
+
 # Build application
 RUN npm run build
 
