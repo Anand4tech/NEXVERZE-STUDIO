@@ -1,0 +1,32 @@
+{
+  "entities": {
+    "gallery_replacement": {
+      "title": "Gallery Replacement",
+      "description": "Represents a custom video replacement in the showcase gallery.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "prompt": { "type": "string" },
+        "model": { "type": "string" },
+        "aspect_ratio": { "type": "string" },
+        "video_url": { "type": "string" },
+        "thumbnail_url": { "type": "string" },
+        "hasVideo": { "type": "boolean" },
+        "isCustomReplaced": { "type": "boolean" },
+        "objectFit": { "type": "string" },
+        "objectPositionX": { "type": "number" },
+        "objectPositionY": { "type": "number" },
+        "zoomScale": { "type": "number" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "video_url", "updated_at"]
+    }
+  },
+  "firestore": {
+    "/gallery_replacements/{replacementId}": {
+      "schema": "gallery_replacement",
+      "description": "Collection of gallery video replacements."
+    }
+  }
+}

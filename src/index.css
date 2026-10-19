@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0a0a12;
+    color: #f4f4f5;
+  }
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.galaxy-text {
+  background: linear-gradient(100deg, #ffffff 20%, #a78bfa 60%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.purple-glow {
+  box-shadow: 0 0 25px rgba(139, 92, 246, 0.25);
+}
+
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover:hover {
+  border-color: rgba(139, 92, 246, 0.45);
+  transform: translateY(-2px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a12;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Frame Smoothing (Motion Interpolation Simulation) */
+.frame-smoothing-active {
+  filter: contrast(1.02) saturate(1.03) blur(0.45px);
+  image-rendering: auto;
+  transform: translateZ(0);
+  will-change: filter, transform;
+}
+
+/* 2x AI Upscale Super-Resolution Cinema Filter */
+.ai-upscale-2x-active {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  filter: contrast(1.06) saturate(1.05) brightness(1.02);
+  transform: translateZ(0);
+  will-change: filter, transform;
+}
+
+@keyframes upscaleSheen {
+  0% {
+    box-shadow: inset 0 0 15px rgba(168, 85, 247, 0.25);
+  }
+  50% {
+    box-shadow: inset 0 0 30px rgba(56, 189, 248, 0.35);
+  }
+  100% {
+    box-shadow: inset 0 0 15px rgba(168, 85, 247, 0.25);
+  }
+}
+
+.ai-upscale-sheen {
+  animation: upscaleSheen 3s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes frameInterpolationShimmer {
+  0%, 100% {
+    backdrop-filter: blur(0.6px) brightness(1.01);
+    opacity: 0.35;
+  }
+  50% {
+    backdrop-filter: blur(0.3px) brightness(0.99);
+    opacity: 0.20;
+  }
+}
+
+.frame-interpolation-overlay {
+  animation: frameInterpolationShimmer 0.12s infinite ease-in-out;
+  pointer-events: none;
+}
+
+/* User-Specified Logo & Brand Header Styles */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  background-color: transparent;
+}
+
+.logo-icon {
+  height: 60px;
+  width: auto;
+  mix-blend-mode: screen;
+  object-fit: contain;
+}
+
+.logo-text {
+  height: 40px;
+  width: auto;
+  mix-blend-mode: screen;
+  object-fit: contain;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.animate-blink-dot {
+  animation: blink 1.2s infinite;
+}
+
+/* Subtle float animation for ₹99 Trial Pack Banner to increase visual prominence & CTR */
+@keyframes floatSubtle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float-subtle {
+  animation: floatSubtle 4s ease-in-out infinite;
+}
+
+/* Pro Badge Glow */
+.pro-badge-glow {
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.45), 0 0 4px rgba(236, 72, 153, 0.3);
+}
+
+/* Glowing pulse animation on Live Output Preview player frame during generation */
+@keyframes playerGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.35), 0 0 50px rgba(139, 92, 246, 0.2), inset 0 0 20px rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.65);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(236, 72, 153, 0.55), 0 0 80px rgba(168, 85, 247, 0.35), inset 0 0 35px rgba(236, 72, 153, 0.25);
+    border-color: rgba(236, 72, 153, 0.85);
+  }
+}
+
+.animate-player-generating {
+  animation: playerGlowPulse 2.2s ease-in-out infinite;
+}

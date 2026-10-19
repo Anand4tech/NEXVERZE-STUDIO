@@ -1,0 +1,669 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+  <defs>
+    <!-- Soft Emboss Gradients -->
+    <linearGradient id="bodyGradA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="35%" stop-color="#f8fafc" />
+      <stop offset="70%" stop-color="#f1f5f9" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </linearGradient>
+
+    <linearGradient id="bodyGradB" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#f8fafc" />
+      <stop offset="80%" stop-color="#e2e8f0" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="50%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+
+    <linearGradient id="chipSurfaceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="60%" stop-color="#f1f5f9" />
+      <stop offset="100%" stop-color="#cbd5e1" />
+    </linearGradient>
+
+    <filter id="crossoverShad" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#475569" flood-opacity="0.45" />
+    </filter>
+
+    <filter id="dropShadSubtle" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#475569" flood-opacity="0.35" />
+    </filter>
+
+    <filter id="masterDropShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#334155" flood-opacity="0.25" />
+    </filter>
+
+    <!-- Master loop definitions -->
+    <g id="loop1Graphic">
+      <path d="
+      M -110 -200
+      L 110 -200
+      A 200 200 0 0 1 110 200
+      L -110 200
+      A 200 200 0 0 1 -110 -200
+      Z
+      M -110 -120
+      L 110 -120
+      A 120 120 0 0 1 110 120
+      L -110 120
+      A 120 120 0 0 1 -110 -120
+      Z
+    " fill="url(#bodyGradA)" fill-rule="evenodd" />
+      <path d="M -110 -200 L 110 -200 A 200 200 0 0 1 110 200 L -110 200 A 200 200 0 0 1 -110 -200 Z" fill="none" stroke="url(#rimGrad)" stroke-width="4.0" />
+      <path d="M -110 -200 L 110 -200 A 200 200 0 0 1 110 200 L -110 200 A 200 200 0 0 1 -110 -200 Z" fill="none" stroke="#ffffff" stroke-width="1.8" opacity="0.9" />
+      <path d="M -110 -120 L 110 -120 A 120 120 0 0 1 110 120 L -110 120 A 120 120 0 0 1 -110 -120 Z" fill="none" stroke="url(#rimGrad)" stroke-width="4.0" />
+      <path d="M -110 -120 L 110 -120 A 120 120 0 0 1 110 120 L -110 120 A 120 120 0 0 1 -110 -120 Z" fill="none" stroke="#ffffff" stroke-width="1.8" opacity="0.9" />
+      
+          <path d="M -95 -128 L 85 -128" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-95" cy="-128" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 128 L 70 128 l -8 -8 L -75 120" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-100" cy="128" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -128 A 128 128 0 0 1 110 128" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 128 A 128 128 0 0 1 -110 -128" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="60, 20, 50, 20" />
+      
+
+          <circle cx="218.07397446425793" cy="68.58582975731157" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="200.50966799187808" cy="-90.50966799187808" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <circle cx="-208.62569507530102" cy="81.59027068783227" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="-218.07397446425793" cy="-68.58582975731157" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -136 L -70 -136 l 8 8 L 95 -128" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-128" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 136 L 95 136" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="136" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -136 A 136 136 0 0 1 110 136" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 136 A 136 136 0 0 1 -110 -136" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <path d="M -95 -144 L 85 -144" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-95" cy="-144" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 144 L 54 144 l -8 -8 L -75 136" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-100" cy="144" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -144 A 144 144 0 0 1 110 144" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 144 A 144 144 0 0 1 -110 -144" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <circle cx="231.5832212722902" cy="77.15905847697552" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="211.82337649086287" cy="-101.82337649086284" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -152 L -50 -152 l 8 8 L 95 -144" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-144" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 152 L 95 152" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="152" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -152 A 152 152 0 0 1 110 152" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 152 A 152 152 0 0 1 -110 -152" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="60, 20, 50, 20" />
+      
+
+          <circle cx="-227.11801290191997" cy="96.88844644180082" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+          <circle cx="-238.3378446763063" cy="-81.44567283680749" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -95 -160 L 85 -160" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-95" cy="-160" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 160 L 38 160 l -8 -8 L -75 152" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-100" cy="160" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -160 A 160 160 0 0 1 110 160" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 160 A 160 160 0 0 1 -110 -160" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <circle cx="245.09246808032242" cy="85.73228719663946" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="223.1370849898476" cy="-113.1370849898476" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -168 L -30 -168 l 8 8 L 95 -160" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-160" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 168 L 95 168" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="168" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -168 A 168 168 0 0 1 110 168" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 168 A 168 168 0 0 1 -110 -168" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <path d="M -95 -176 L 85 -176" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-95" cy="-176" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 176 L 22 176 l -8 -8 L -75 168" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-100" cy="176" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -176 A 176 176 0 0 1 110 176" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 176 A 176 176 0 0 1 -110 -176" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="60, 20, 50, 20" />
+      
+
+          <circle cx="258.60171488835465" cy="94.3055159163034" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="234.45079348883237" cy="-124.45079348883235" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <circle cx="-245.6103307285389" cy="112.18662219576937" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="-258.60171488835465" cy="-94.3055159163034" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -184 L -10 -184 l 8 8 L 95 -176" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-176" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 184 L 95 184" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="184" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -184 A 184 184 0 0 1 110 184" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 184 A 184 184 0 0 1 -110 -184" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <path d="M -95 -192 L 85 -192" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-95" cy="-192" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 192 L 6 192 l -8 -8 L -75 184" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-100" cy="192" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -192 A 192 192 0 0 1 110 192" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 192 A 192 192 0 0 1 -110 -192" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <circle cx="272.1109616963869" cy="102.87874463596737" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="245.76450198781714" cy="-135.7645019878171" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <line x1="-70" y1="-130" x2="-60" y2="-130" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-139" x2="-60" y2="-139" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-148" x2="-60" y2="-148" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-157" x2="-60" y2="-157" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-166" x2="-60" y2="-166" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-175" x2="-60" y2="-175" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-184" x2="-60" y2="-184" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="130" x2="75" y2="130" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="139" x2="75" y2="139" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="148" x2="75" y2="148" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="157" x2="75" y2="157" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="166" x2="75" y2="166" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="175" x2="75" y2="175" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="184" x2="75" y2="184" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+      <g transform="translate(15, -160)">
+        <g stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round">
+          <line x1="-10" y1="-23" x2="-10" y2="-17" />
+          <line x1="-4" y1="-23" x2="-4" y2="-17" />
+          <line x1="4" y1="-23" x2="4" y2="-17" />
+          <line x1="10" y1="-23" x2="10" y2="-17" />
+
+          <line x1="-10" y1="17" x2="-10" y2="23" />
+          <line x1="-4" y1="17" x2="-4" y2="23" />
+          <line x1="4" y1="17" x2="4" y2="23" />
+          <line x1="10" y1="17" x2="10" y2="23" />
+
+          <line x1="-23" y1="-8" x2="-17" y2="-8" />
+          <line x1="-23" y1="0" x2="-17" y2="0" />
+          <line x1="-23" y1="8" x2="-17" y2="8" />
+
+          <line x1="17" y1="-8" x2="23" y2="-8" />
+          <line x1="17" y1="0" x2="23" y2="0" />
+          <line x1="17" y1="8" x2="23" y2="8" />
+        </g>
+        <rect x="-17" y="-17" width="34" height="34" rx="4" fill="url(#chipSurfaceGrad)" stroke="#78889b" stroke-width="1.7" filter="url(#dropShadSubtle)" />
+        <rect x="-11" y="-11" width="22" height="22" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.1" />
+        <circle cx="-6" cy="-6" r="1.5" fill="#64748b" />
+      </g>
+    
+
+      <g transform="translate(-15, 160)">
+        <g stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round">
+          <line x1="-10" y1="-23" x2="-10" y2="-17" />
+          <line x1="-4" y1="-23" x2="-4" y2="-17" />
+          <line x1="4" y1="-23" x2="4" y2="-17" />
+          <line x1="10" y1="-23" x2="10" y2="-17" />
+
+          <line x1="-10" y1="17" x2="-10" y2="23" />
+          <line x1="-4" y1="17" x2="-4" y2="23" />
+          <line x1="4" y1="17" x2="4" y2="23" />
+          <line x1="10" y1="17" x2="10" y2="23" />
+
+          <line x1="-23" y1="-8" x2="-17" y2="-8" />
+          <line x1="-23" y1="0" x2="-17" y2="0" />
+          <line x1="-23" y1="8" x2="-17" y2="8" />
+
+          <line x1="17" y1="-8" x2="23" y2="-8" />
+          <line x1="17" y1="0" x2="23" y2="0" />
+          <line x1="17" y1="8" x2="23" y2="8" />
+        </g>
+        <rect x="-17" y="-17" width="34" height="34" rx="4" fill="url(#chipSurfaceGrad)" stroke="#78889b" stroke-width="1.7" filter="url(#dropShadSubtle)" />
+        <rect x="-11" y="-11" width="22" height="22" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.1" />
+        <circle cx="-6" cy="-6" r="1.5" fill="#64748b" />
+      </g>
+    
+    </g>
+
+    <g id="loop2Graphic">
+      <path d="
+      M -110 -200
+      L 110 -200
+      A 200 200 0 0 1 110 200
+      L -110 200
+      A 200 200 0 0 1 -110 -200
+      Z
+      M -110 -120
+      L 110 -120
+      A 120 120 0 0 1 110 120
+      L -110 120
+      A 120 120 0 0 1 -110 -120
+      Z
+    " fill="url(#bodyGradB)" fill-rule="evenodd" />
+      <path d="M -110 -200 L 110 -200 A 200 200 0 0 1 110 200 L -110 200 A 200 200 0 0 1 -110 -200 Z" fill="none" stroke="url(#rimGrad)" stroke-width="4.0" />
+      <path d="M -110 -200 L 110 -200 A 200 200 0 0 1 110 200 L -110 200 A 200 200 0 0 1 -110 -200 Z" fill="none" stroke="#ffffff" stroke-width="1.8" opacity="0.9" />
+      <path d="M -110 -120 L 110 -120 A 120 120 0 0 1 110 120 L -110 120 A 120 120 0 0 1 -110 -120 Z" fill="none" stroke="url(#rimGrad)" stroke-width="4.0" />
+      <path d="M -110 -120 L 110 -120 A 120 120 0 0 1 110 120 L -110 120 A 120 120 0 0 1 -110 -120 Z" fill="none" stroke="#ffffff" stroke-width="1.8" opacity="0.9" />
+      
+          <path d="M -95 -128 L 85 -128" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-95" cy="-128" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 128 L 70 128 l -8 -8 L -75 120" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-100" cy="128" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -128 A 128 128 0 0 1 110 128" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 128 A 128 128 0 0 1 -110 -128" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="60, 20, 50, 20" />
+      
+
+          <circle cx="218.07397446425793" cy="68.58582975731157" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="200.50966799187808" cy="-90.50966799187808" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <circle cx="-208.62569507530102" cy="81.59027068783227" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="-218.07397446425793" cy="-68.58582975731157" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -136 L -70 -136 l 8 8 L 95 -128" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-128" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 136 L 95 136" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="136" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -136 A 136 136 0 0 1 110 136" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 136 A 136 136 0 0 1 -110 -136" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <path d="M -95 -144 L 85 -144" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-95" cy="-144" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 144 L 54 144 l -8 -8 L -75 136" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-100" cy="144" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -144 A 144 144 0 0 1 110 144" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 144 A 144 144 0 0 1 -110 -144" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <circle cx="231.5832212722902" cy="77.15905847697552" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="211.82337649086287" cy="-101.82337649086284" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -152 L -50 -152 l 8 8 L 95 -144" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-144" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 152 L 95 152" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="152" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -152 A 152 152 0 0 1 110 152" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 152 A 152 152 0 0 1 -110 -152" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="60, 20, 50, 20" />
+      
+
+          <circle cx="-227.11801290191997" cy="96.88844644180082" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+          <circle cx="-238.3378446763063" cy="-81.44567283680749" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -95 -160 L 85 -160" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-95" cy="-160" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 160 L 38 160 l -8 -8 L -75 152" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-100" cy="160" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -160 A 160 160 0 0 1 110 160" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 160 A 160 160 0 0 1 -110 -160" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <circle cx="245.09246808032242" cy="85.73228719663946" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="223.1370849898476" cy="-113.1370849898476" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -168 L -30 -168 l 8 8 L 95 -160" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-160" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 168 L 95 168" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="168" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -168 A 168 168 0 0 1 110 168" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 168 A 168 168 0 0 1 -110 -168" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <path d="M -95 -176 L 85 -176" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-95" cy="-176" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 176 L 22 176 l -8 -8 L -75 168" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" />
+          <circle cx="-100" cy="176" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -176 A 176 176 0 0 1 110 176" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 176 A 176 176 0 0 1 -110 -176" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="60, 20, 50, 20" />
+      
+
+          <circle cx="258.60171488835465" cy="94.3055159163034" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="234.45079348883237" cy="-124.45079348883235" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <circle cx="-245.6103307285389" cy="112.18662219576937" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="-258.60171488835465" cy="-94.3055159163034" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -85 -184 L -10 -184 l 8 8 L 95 -176" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="-176" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+          <path d="M -90 184 L 95 184" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" />
+          <circle cx="95" cy="184" r="2.8" fill="#f8fafc" stroke="#78889b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -184 A 184 184 0 0 1 110 184" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="40, 15, 45, 15, 60" />
+        <path d="M -110 184 A 184 184 0 0 1 -110 -184" fill="none" stroke="#78889b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <path d="M -95 -192 L 85 -192" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-95" cy="-192" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+          <path d="M -100 192 L 6 192 l -8 -8 L -75 184" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" />
+          <circle cx="-100" cy="192" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <path d="M 110 -192 A 192 192 0 0 1 110 192" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="55, 18, 70" />
+        <path d="M -110 192 A 192 192 0 0 1 -110 -192" fill="none" stroke="#64748b" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="35, 12, 80" />
+      
+
+          <circle cx="272.1109616963869" cy="102.87874463596737" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+          <circle cx="245.76450198781714" cy="-135.7645019878171" r="2.8" fill="#f8fafc" stroke="#64748b" stroke-width="1.3" />
+        
+
+        <line x1="-70" y1="-130" x2="-60" y2="-130" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-139" x2="-60" y2="-139" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-148" x2="-60" y2="-148" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-157" x2="-60" y2="-157" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-166" x2="-60" y2="-166" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-175" x2="-60" y2="-175" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="-70" y1="-184" x2="-60" y2="-184" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="-70" cy="-184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="-60" cy="-184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="130" x2="75" y2="130" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="130" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="139" x2="75" y2="139" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="139" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="148" x2="75" y2="148" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="148" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="157" x2="75" y2="157" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="157" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="166" x2="75" y2="166" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="166" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="175" x2="75" y2="175" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="175" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+        <line x1="65" y1="184" x2="75" y2="184" stroke="#64748b" stroke-width="1.5" />
+        <circle cx="65" cy="184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="75" cy="184" r="2.4" fill="#f8fafc" stroke="#64748b" stroke-width="1.2" />
+      
+
+      <g transform="translate(15, -160)">
+        <g stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round">
+          <line x1="-10" y1="-23" x2="-10" y2="-17" />
+          <line x1="-4" y1="-23" x2="-4" y2="-17" />
+          <line x1="4" y1="-23" x2="4" y2="-17" />
+          <line x1="10" y1="-23" x2="10" y2="-17" />
+
+          <line x1="-10" y1="17" x2="-10" y2="23" />
+          <line x1="-4" y1="17" x2="-4" y2="23" />
+          <line x1="4" y1="17" x2="4" y2="23" />
+          <line x1="10" y1="17" x2="10" y2="23" />
+
+          <line x1="-23" y1="-8" x2="-17" y2="-8" />
+          <line x1="-23" y1="0" x2="-17" y2="0" />
+          <line x1="-23" y1="8" x2="-17" y2="8" />
+
+          <line x1="17" y1="-8" x2="23" y2="-8" />
+          <line x1="17" y1="0" x2="23" y2="0" />
+          <line x1="17" y1="8" x2="23" y2="8" />
+        </g>
+        <rect x="-17" y="-17" width="34" height="34" rx="4" fill="url(#chipSurfaceGrad)" stroke="#78889b" stroke-width="1.7" filter="url(#dropShadSubtle)" />
+        <rect x="-11" y="-11" width="22" height="22" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.1" />
+        <circle cx="-6" cy="-6" r="1.5" fill="#64748b" />
+      </g>
+    
+
+      <g transform="translate(-15, 160)">
+        <g stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round">
+          <line x1="-10" y1="-23" x2="-10" y2="-17" />
+          <line x1="-4" y1="-23" x2="-4" y2="-17" />
+          <line x1="4" y1="-23" x2="4" y2="-17" />
+          <line x1="10" y1="-23" x2="10" y2="-17" />
+
+          <line x1="-10" y1="17" x2="-10" y2="23" />
+          <line x1="-4" y1="17" x2="-4" y2="23" />
+          <line x1="4" y1="17" x2="4" y2="23" />
+          <line x1="10" y1="17" x2="10" y2="23" />
+
+          <line x1="-23" y1="-8" x2="-17" y2="-8" />
+          <line x1="-23" y1="0" x2="-17" y2="0" />
+          <line x1="-23" y1="8" x2="-17" y2="8" />
+
+          <line x1="17" y1="-8" x2="23" y2="-8" />
+          <line x1="17" y1="0" x2="23" y2="0" />
+          <line x1="17" y1="8" x2="23" y2="8" />
+        </g>
+        <rect x="-17" y="-17" width="34" height="34" rx="4" fill="url(#chipSurfaceGrad)" stroke="#78889b" stroke-width="1.7" filter="url(#dropShadSubtle)" />
+        <rect x="-11" y="-11" width="22" height="22" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.1" />
+        <circle cx="-6" cy="-6" r="1.5" fill="#64748b" />
+      </g>
+    
+    </g>
+
+    <!-- Clip paths for Loop 1 (underlying surface) to receive crossover shadows -->
+    <clipPath id="loop1Clip">
+      <g transform="rotate(-38)">
+        <path d="
+      M -110 -200
+      L 110 -200
+      A 200 200 0 0 1 110 200
+      L -110 200
+      A 200 200 0 0 1 -110 -200
+      Z
+      M -110 -120
+      L 110 -120
+      A 120 120 0 0 1 110 120
+      L -110 120
+      A 120 120 0 0 1 -110 -120
+      Z
+    " fill-rule="evenodd" />
+      </g>
+    </clipPath>
+
+    <!-- Clip paths for Loop 2 crossing OVER Loop 1 on Right and Left sides -->
+    <!-- In world coords, Right crossing is at (260, 0), Left crossing is at (-260, 0) -->
+    <!-- Circles of radius 110 at (+260, 0) and (-260, 0) completely enclose each crossing without touching any other crossing! -->
+    <clipPath id="sideCrossingsClip">
+      <circle cx="260" cy="0" r="115" />
+      <circle cx="-260" cy="0" r="115" />
+    </clipPath>
+  </defs>
+
+  <g transform="translate(500, 500)" filter="url(#masterDropShadow)">
+    
+    <!-- 1. FULL LOOP 2 (Tilted +38 deg) -->
+    <g transform="rotate(38)">
+      <use href="#loop2Graphic" />
+    </g>
+
+    <!-- 2. FULL LOOP 1 (Tilted -38 deg) - Passes OVER Loop 2 at Top (0, -203) and Bottom (0, 203) -->
+    <g transform="rotate(-38)" filter="url(#crossoverShad)">
+      <use href="#loop1Graphic" />
+    </g>
+
+    <!-- 3. WEAVE OVERLAY: Loop 2 passing OVER Loop 1 at RIGHT and LEFT crossings -->
+    <!-- Since it uses identical #loop2Graphic, pixels match with 100% precision with NO seams -->
+    <g clip-path="url(#sideCrossingsClip)">
+      <g transform="rotate(38)">
+        <use href="#loop2Graphic" />
+      </g>
+    </g>
+
+    <!-- 4. REALISTIC WEAVE SHADOW: Loop 2 casts crossover shadows onto Loop 1 at Right and Left crossings -->
+    <g clip-path="url(#loop1Clip)">
+      <!-- Right crossing shadow along Loop 2 borders -->
+      <g transform="rotate(38)">
+        <path d="M -110 -200 L 110 -200 A 200 200 0 0 1 110 200 L -110 200 A 200 200 0 0 1 -110 -200 Z" fill="none" stroke="#334155" stroke-width="10" opacity="0.32" filter="url(#crossoverShad)" />
+        <path d="M -110 -120 L 110 -120 A 120 120 0 0 1 110 120 L -110 120 A 120 120 0 0 1 -110 -120 Z" fill="none" stroke="#334155" stroke-width="10" opacity="0.32" filter="url(#crossoverShad)" />
+      </g>
+    </g>
+
+  </g>
+</svg>

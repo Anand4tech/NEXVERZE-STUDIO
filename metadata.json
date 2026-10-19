@@ -1,0 +1,6 @@
+{
+  "name": "NexVerze Studio",
+  "description": "NexVerze AI Video Studio with Luma, Veo 3, and Kling AI engines, credit management, 1080x1920 Quality Lock, and Next.js 14 export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
