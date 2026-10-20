@@ -13,33 +13,39 @@ export const NexVerzeLogo: React.FC<NexVerzeLogoProps> = ({
   className = '',
   onClick,
 }) => {
-  const [symbolError, setSymbolError] = useState(false);
-  const [textError, setTextError] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const [customLogo, setCustomLogo] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      setCustomLogo(localStorage.getItem('custom_header_logo'));
+      const stored = localStorage.getItem('custom_header_logo');
+      // If old placeholder/screenshot was cached, ignore so new blended logo renders
+      if (stored && (stored.includes('Screenshot') || stored.includes('removebg'))) {
+        localStorage.removeItem('custom_header_logo');
+        setCustomLogo(null);
+      } else {
+        setCustomLogo(stored);
+      }
     }
   }, []);
 
-  // High-clarity scaled heights
+  // Responsive height classes
+  const fullHeightClasses = {
+    sm: 'h-9 sm:h-10',
+    md: 'h-12 sm:h-14 md:h-16',
+    lg: 'h-16 sm:h-20',
+    xl: 'h-20 sm:h-24',
+  };
+
   const iconHeightClasses = {
-    sm: 'h-11',
-    md: 'h-[78px] w-[98px]',
-    lg: 'h-20 sm:h-24',
-    xl: 'h-24 sm:h-28',
-  };
-
-  const textHeightClasses = {
-    sm: 'h-8',
-    md: 'h-[62px] w-[220px]',
+    sm: 'h-8 sm:h-9',
+    md: 'h-12 sm:h-14',
     lg: 'h-16 sm:h-18',
-    xl: 'h-18 sm:h-20',
+    xl: 'h-20 sm:h-22',
   };
 
+  const fullHeight = fullHeightClasses[size] || fullHeightClasses.md;
   const iconHeight = iconHeightClasses[size] || iconHeightClasses.md;
-  const textHeight = textHeightClasses[size] || textHeightClasses.md;
 
   // Icon only variant
   if (variant === 'icon') {
@@ -50,64 +56,37 @@ export const NexVerzeLogo: React.FC<NexVerzeLogoProps> = ({
         title="NEXVERZE Icon"
       >
         <img
-          src={customLogo || (symbolError ? '/studio/icon_infinity_transparent.png' : '/Screenshot_2026-10-10_231546-removebg-preview.png')}
+          src={customLogo || '/nexverze-knot-icon.png'}
           alt="NEXVERZE Icon"
           className={`${iconHeight} w-auto object-contain transition-transform duration-300 hover:scale-105`}
           style={{
-            mixBlendMode: 'screen',
-            filter: 'drop-shadow(0 0 14px rgba(0,212,255,0.85)) drop-shadow(0 0 22px rgba(255,140,0,0.65)) contrast(1.2) brightness(1.15)',
+            filter: 'drop-shadow(0 0 14px rgba(0,212,255,0.75)) drop-shadow(0 0 22px rgba(255,140,0,0.55))',
             imageRendering: '-webkit-optimize-contrast',
           }}
-          onError={() => setSymbolError(true)}
+          onError={() => setLogoError(true)}
         />
       </div>
     );
   }
 
-  // Exact Brand Markup with High Visibility & Seamless Background Blending
+  // Full / Compact Brand Lockup (Seamless Transparent Background Blending)
   return (
     <div
       onClick={onClick}
-      className={`brand flex items-center gap-3.5 cursor-pointer select-none ${className}`}
+      className={`brand flex items-center cursor-pointer select-none ${className}`}
       title="NEXVERZE STUDIO"
     >
-      {customLogo ? (
-        <img
-          src={customLogo}
-          alt="Custom Header Logo"
-          className="h-[96px] w-auto object-contain transition-transform duration-300 hover:scale-105"
-          style={{
-            objectFit: 'contain',
-            background: 'transparent',
-            imageRendering: '-webkit-optimize-contrast',
-          }}
-        />
-      ) : (
-        <>
-          <img
-            src={symbolError ? '/studio/icon_infinity_transparent.png' : '/icon-logo-clean.png'}
-            alt="NEXVERZE Icon"
-            className={`${iconHeight} w-auto object-contain transition-transform duration-300 hover:scale-105`}
-            style={{
-              mixBlendMode: 'screen',
-              filter: 'drop-shadow(0 0 12px rgba(0,212,255,0.85)) drop-shadow(0 0 20px rgba(255,140,0,0.65)) contrast(1.2) brightness(1.2)',
-              imageRendering: '-webkit-optimize-contrast',
-            }}
-            onError={() => setSymbolError(true)}
-          />
-          <img
-            src={textError ? '/studio/text_nexverze_transparent.png' : '/text-logo-clean.png'}
-            alt="NEXVERZE STUDIO"
-            className={`${textHeight} w-auto object-contain transition-opacity duration-300 hover:opacity-95`}
-            style={{
-              mixBlendMode: 'screen',
-              filter: 'drop-shadow(0 0 12px rgba(160,140,255,0.8)) drop-shadow(0 0 4px rgba(255,255,255,0.5)) contrast(1.25) brightness(1.3)',
-              imageRendering: '-webkit-optimize-contrast',
-            }}
-            onError={() => setTextError(true)}
-          />
-        </>
-      )}
+      <img
+        src={customLogo || (logoError ? '/icon-logo-clean.png' : '/nexverze-logo-full.png')}
+        alt="NEXVERZE STUDIO"
+        className={`${fullHeight} w-auto object-contain transition-transform duration-300 hover:scale-105`}
+        style={{
+          background: 'transparent',
+          filter: 'drop-shadow(0 0 16px rgba(0,212,255,0.45)) drop-shadow(0 0 24px rgba(255,140,0,0.35))',
+          imageRendering: '-webkit-optimize-contrast',
+        }}
+        onError={() => setLogoError(true)}
+      />
     </div>
   );
 };

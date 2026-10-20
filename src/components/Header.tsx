@@ -32,7 +32,12 @@ export const Header: React.FC<HeaderProps> = ({
   // Custom Uploaded Header Logo State & Toggle Switch with localStorage persistence
   const [customLogo, setCustomLogo] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('custom_header_logo');
+      const stored = localStorage.getItem('custom_header_logo');
+      if (stored && (stored.includes('Screenshot') || stored.includes('removebg') || stored.includes('c2ca3d72'))) {
+        localStorage.removeItem('custom_header_logo');
+        return null;
+      }
+      return stored;
     }
     return null;
   });
@@ -102,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({
                 setActiveView('studio');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="brand flex items-center gap-4 sm:gap-5 hover:opacity-95 transition-opacity py-0.5 px-0.5 bg-transparent border-none shadow-none cursor-pointer"
+              className="brand flex items-center hover:opacity-95 transition-opacity py-0.5 px-0.5 bg-transparent border-none shadow-none cursor-pointer"
               style={{ textDecoration: 'none', background: 'transparent' }}
               title="NEXVERZE STUDIO - Home"
             >
@@ -111,52 +116,48 @@ export const Header: React.FC<HeaderProps> = ({
                 <img
                   src={customLogo}
                   alt="Custom Header Logo"
-                  className="h-[96px] max-h-[106px] w-auto object-contain transition-transform duration-300 hover:scale-105"
+                  className="h-[48px] sm:h-[58px] md:h-[66px] max-h-[72px] w-auto object-contain transition-transform duration-300 hover:scale-105"
                   style={{
-                    height: '96px',
-                    width: 'auto',
-                    maxHeight: '106px',
                     objectFit: 'contain',
                     background: 'transparent',
+                    filter: 'drop-shadow(0 0 16px rgba(0,212,255,0.45)) drop-shadow(0 0 24px rgba(255,140,0,0.35))',
                     imageRendering: '-webkit-optimize-contrast',
                   }}
                 />
               ) : (
-                /* Default Side-by-Side Logo Images */
-                <>
-                  {/* Image 1: Glowing Orange-Blue Infinity Knot Icon (98px width x 78px height) */}
-                  <img
-                    src={iconError ? '/studio/icon_infinity_transparent.png' : '/icon-logo-clean.png'}
-                    alt="NEXVERZE Icon"
-                    className="h-[60px] sm:h-[70px] md:h-[78px] w-[78px] sm:w-[88px] md:w-[98px] object-contain transition-transform duration-300 hover:scale-105"
-                    style={{
-                      height: '78px',
-                      width: '98px',
-                      objectFit: 'contain',
-                      mixBlendMode: 'screen',
-                      filter: 'drop-shadow(0 0 16px rgba(0,212,255,0.85)) drop-shadow(0 0 24px rgba(255,140,0,0.65)) contrast(1.22) brightness(1.25)',
-                      imageRendering: '-webkit-optimize-contrast',
-                    }}
-                    onError={() => setIconError(true)}
-                  />
-
-                  {/* Image 2: NEXVERZE STUDIO Text Logo (220px width x 62px height) */}
-                  <img
-                    src={textError ? '/studio/text_nexverze_transparent.png' : '/text-logo-clean.png'}
-                    alt="NEXVERZE STUDIO"
-                    className="h-[48px] sm:h-[56px] md:h-[62px] w-[170px] sm:w-[195px] md:w-[220px] object-contain transition-opacity duration-300"
-                    style={{
-                      height: '62px',
-                      width: '220px',
-                      objectFit: 'contain',
-                      mixBlendMode: 'screen',
-                      filter: 'drop-shadow(0 0 16px rgba(160,140,255,0.85)) drop-shadow(0 0 4px rgba(255,255,255,0.65)) contrast(1.3) brightness(1.35)',
-                      imageRendering: '-webkit-optimize-contrast',
-                    }}
-                    onError={() => setTextError(true)}
-                  />
-                </>
+                /* Seamless Transparent Blended Logo Lockup */
+                <img
+                  src="/nexverze-logo-full.png"
+                  alt="NEXVERZE STUDIO"
+                  className="h-[48px] sm:h-[58px] md:h-[66px] max-h-[72px] w-auto object-contain transition-transform duration-300 hover:scale-105"
+                  style={{
+                    objectFit: 'contain',
+                    background: 'transparent',
+                    filter: 'drop-shadow(0 0 16px rgba(0,212,255,0.45)) drop-shadow(0 0 24px rgba(255,140,0,0.35))',
+                    imageRendering: '-webkit-optimize-contrast',
+                  }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                    const fallback = document.getElementById('header-fallback-logo');
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                />
               )}
+              {/* Resilient fallback for icon + text if needed */}
+              <div id="header-fallback-logo" className="hidden items-center gap-3">
+                <img
+                  src="/nexverze-knot-icon.png"
+                  alt="NEXVERZE Icon"
+                  className="h-[52px] sm:h-[60px] w-auto object-contain"
+                  style={{ filter: 'drop-shadow(0 0 14px rgba(0,212,255,0.75)) drop-shadow(0 0 20px rgba(255,140,0,0.55))' }}
+                />
+                <img
+                  src="/nexverze-text-brand.png"
+                  alt="NEXVERZE STUDIO"
+                  className="h-[36px] sm:h-[44px] w-auto object-contain"
+                  style={{ filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.3))' }}
+                />
+              </div>
             </a>
 
             {/* Logo Upload Trigger Button (Visible only when switch is ON) */}

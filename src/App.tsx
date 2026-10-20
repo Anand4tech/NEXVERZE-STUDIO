@@ -473,12 +473,23 @@ export default function App() {
   const handleRemixVideo = (config?: {
     prompt?: string;
     modelName?: string;
+    model?: string;
     duration?: string;
     aspectRatio?: '9:16' | '16:9' | '1:1';
+    aspect_ratio?: '9:16' | '16:9' | '1:1';
     motionIntensity?: number;
     sceneTransition?: SceneTransitionType;
     colorGrading?: ColorGradingPreset;
   }) => {
+    // 0. Ensure studio workspace is opened and navigated to
+    if (activeView !== 'studioApp') {
+      setActiveView('studioApp');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/studio') {
+        window.history.pushState({ view: 'studioApp' }, '', '/studio');
+      }
+    }
+    setIsStudioExpanded(true);
+
     // 1. Clone prompt
     const targetPrompt = config?.prompt || currentVideo.prompt;
     if (targetPrompt) {
@@ -486,7 +497,7 @@ export default function App() {
     }
 
     // 2. Clone model
-    const targetModelStr = (config?.modelName || currentVideo.model || '').toLowerCase();
+    const targetModelStr = (config?.modelName || (config as any)?.model || currentVideo.model || '').toLowerCase();
     let matchedModel: ModelType = selectedModel;
     if (targetModelStr.includes('veo') || targetModelStr === 'veo3') {
       matchedModel = 'veo';
@@ -513,7 +524,7 @@ export default function App() {
     setSelectedDuration(matchedDur);
 
     // 4. Clone aspect ratio
-    const targetRatio = config?.aspectRatio || currentVideo.aspect_ratio;
+    const targetRatio = config?.aspectRatio || (config as any)?.aspect_ratio || currentVideo.aspect_ratio;
     if (targetRatio && ['9:16', '16:9', '1:1'].includes(targetRatio)) {
       setSelectedRatio(targetRatio);
     }
@@ -536,7 +547,7 @@ export default function App() {
         textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
         textarea.focus();
       }
-    }, 50);
+    }, 150);
 
     // 7. Show feedback banner
     setRemixBanner({
