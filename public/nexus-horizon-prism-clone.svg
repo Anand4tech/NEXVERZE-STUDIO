@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400" fill="none">
+  <defs>
+    <!-- Glow Filters -->
+    <filter id="portalGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+    </filter>
+
+    <!-- Gradients -->
+    <!-- Left Ribbon Magenta-Purple -->
+    <linearGradient id="gradLeftRibbon" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#D81B60" />
+      <stop offset="50%" stop-color="#E91E63" />
+      <stop offset="100%" stop-color="#FF4081" />
+    </linearGradient>
+
+    <!-- Left Ribbon Underside / Bevel -->
+    <linearGradient id="gradLeftShadow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#880E4F" />
+      <stop offset="100%" stop-color="#4A148C" />
+    </linearGradient>
+
+    <!-- Top Arch Sunset Coral -->
+    <linearGradient id="gradTopArch" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF5252" />
+      <stop offset="50%" stop-color="#FF7043" />
+      <stop offset="100%" stop-color="#FF8A65" />
+    </linearGradient>
+
+    <!-- Diagonal Ribbon Magenta-Coral -->
+    <linearGradient id="gradDiagMagenta" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4081" />
+      <stop offset="50%" stop-color="#E91E63" />
+      <stop offset="100%" stop-color="#C2185B" />
+    </linearGradient>
+
+    <!-- Cyan Underside Sweep -->
+    <linearGradient id="gradCyanSweep" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF" />
+      <stop offset="50%" stop-color="#00BCD4" />
+      <stop offset="100%" stop-color="#0288D1" />
+    </linearGradient>
+
+    <!-- Outer Swirl Arc (Cyan-Blue) -->
+    <linearGradient id="gradOuterSwirlCyan" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0288D1" />
+      <stop offset="50%" stop-color="#00BCD4" />
+      <stop offset="100%" stop-color="#00E5FF" />
+    </linearGradient>
+
+    <!-- Outer Swirl Arc (Coral-Magenta) -->
+    <linearGradient id="gradOuterSwirlCoral" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7043" />
+      <stop offset="60%" stop-color="#E91E63" />
+      <stop offset="100%" stop-color="#9C27B0" />
+    </linearGradient>
+
+    <!-- Inner Vortex Deep Space Disc -->
+    <radialGradient id="gradCoreSpace" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0D1B3E" />
+      <stop offset="60%" stop-color="#080F24" />
+      <stop offset="100%" stop-color="#040714" />
+    </radialGradient>
+
+    <!-- Nebula Glow -->
+    <radialGradient id="gradNebula" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#00BCD4" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#0D1B3E" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Ambient Backdrop Glow -->
+  <circle cx="200" cy="200" r="130" fill="#E91E63" opacity="0.15" filter="url(#softGlow)" />
+  <circle cx="270" cy="200" r="100" fill="#00E5FF" opacity="0.18" filter="url(#softGlow)" />
+
+  <!-- ==================== 1. THE CELESTIAL PORTAL CORE (VORTEX INTERIOR) ==================== -->
+  <g id="portalInterior">
+    <!-- Deep Space Core Disc -->
+    <circle cx="260" cy="200" r="68" fill="url(#gradCoreSpace)" />
+
+    <!-- Nebula Core Glow -->
+    <circle cx="270" cy="210" r="45" fill="url(#gradNebula)" />
+
+    <!-- Starfield Particles inside Portal -->
+    <circle cx="235" cy="185" r="1.5" fill="#FFFFFF" opacity="0.9" />
+    <circle cx="248" cy="215" r="1.2" fill="#FFE082" opacity="0.8" />
+    <circle cx="280" cy="180" r="1.5" fill="#80DEEA" opacity="0.9" />
+    <circle cx="295" cy="195" r="1" fill="#FFFFFF" opacity="0.7" />
+    <circle cx="275" cy="235" r="1.8" fill="#FF8A80" opacity="0.8" />
+    <circle cx="250" cy="240" r="1" fill="#80DEEA" opacity="0.7" />
+    <circle cx="290" cy="225" r="1.5" fill="#FFE082" opacity="0.85" />
+
+    <!-- Central Diamond Star (Coral/Gold) -->
+    <polygon points="262,175 264,182 271,184 264,186 262,193 260,186 253,184 260,182" fill="#FF8A65" filter="url(#portalGlow)" />
+    <!-- Secondary Diamond Star -->
+    <polygon points="248,198 250,203 255,205 250,207 248,212 246,207 241,205 246,203" fill="#80DEEA" />
+  </g>
+
+  <!-- ==================== 2. SWIRLING PORTAL CRESCENT RIBBONS ==================== -->
+  <g id="vortexSwirls">
+    <!-- Inner Swirl Arc (Violet to Cyan) -->
+    <path d="M 235 155 C 280 145 315 170 310 215 C 305 255 265 270 230 250 C 275 265 295 235 290 205 C 285 175 255 160 235 155 Z" 
+          fill="url(#gradCyanSweep)" opacity="0.9" />
+
+    <!-- Swirling Crescent Horn (Electric Cyan, Right Edge) -->
+    <path d="M 270 115 C 330 130 365 185 355 245 C 345 300 295 335 235 320 C 305 325 345 285 345 235 C 345 180 310 130 270 115 Z" 
+          fill="url(#gradOuterSwirlCyan)" filter="url(#portalGlow)" />
+
+    <!-- Outer Swirling Crescent (Coral to Magenta, Top Arch) -->
+    <path d="M 205 85 C 265 75 330 105 345 165 C 325 125 270 100 215 110 C 245 95 285 95 310 110 C 265 90 225 90 205 85 Z" 
+          fill="url(#gradTopArch)" />
+
+    <!-- Bottom Swirling Tail (Magenta to Coral) -->
+    <path d="M 235 280 C 275 305 325 285 340 240 C 330 275 290 295 250 280 C 275 290 305 280 320 260 C 300 275 265 280 235 280 Z" 
+          fill="url(#gradOuterSwirlCoral)" />
+  </g>
+
+  <!-- ==================== 3. THE "N" MONOGRAM STEM & CROSS RIBBONS ==================== -->
+  <g id="monogramN">
+    <!-- Left Vertical Stem - Underside Shadow Curve -->
+    <path d="M 75 315 C 65 280 72 200 82 155 C 88 130 108 120 128 135 C 108 145 95 185 90 245 C 85 290 70 315 75 315 Z" 
+          fill="url(#gradLeftShadow)" />
+
+    <!-- Left Vertical Stem - Primary Magenta Ribbon -->
+    <path d="M 70 315 C 60 280 75 190 85 150 C 95 115 125 105 145 125 C 120 125 102 165 98 235 C 95 285 68 315 70 315 Z" 
+          fill="url(#gradLeftRibbon)" filter="url(#portalGlow)" />
+
+    <!-- Crest Fold (Connecting Left Stem to Diagonal) -->
+    <path d="M 85 150 C 95 115 130 100 160 115 C 185 130 200 165 210 210 C 195 165 175 135 150 125 C 130 118 105 125 85 150 Z" 
+          fill="url(#gradTopArch)" />
+
+    <!-- Specular Highlight Ridge on Top Fold -->
+    <path d="M 98 130 C 120 112 145 110 168 125 C 188 140 200 170 208 205" 
+          stroke="#FFE0B2" stroke-width="2.5" stroke-linecap="round" opacity="0.9" />
+
+    <!-- Diagonal Traverse Ribbon (Magenta-Coral, Plunging into Vortex) -->
+    <path d="M 160 115 C 180 135 200 175 210 230 C 218 280 205 325 180 345 C 205 320 215 275 205 225 C 195 175 180 140 160 115 Z" 
+          fill="url(#gradDiagMagenta)" />
+
+    <!-- Cyan Under-Sweep (Cradling the Diagonal of 'N' into the Vortex) -->
+    <path d="M 115 155 C 135 185 165 240 195 295 C 225 340 270 350 315 325 C 265 345 220 330 190 285 C 160 235 135 185 115 155 Z" 
+          fill="url(#gradCyanSweep)" filter="url(#portalGlow)" />
+    
+    <!-- Razor-Sharp Cyan Specular Highlight -->
+    <path d="M 125 170 C 150 215 180 270 215 315 C 245 340 280 340 310 325" 
+          stroke="#E0F7FA" stroke-width="2" stroke-linecap="round" opacity="0.95" />
+  </g>
+
+  <!-- ==================== 4. CELESTIAL FLOATING SPARKLES ==================== -->
+  <g id="sparkles">
+    <!-- Top-Left Cyan 4-Point Star -->
+    <polygon points="135,95 137,103 145,105 137,107 135,115 133,107 125,105 133,103" fill="#00E5FF" filter="url(#portalGlow)" />
+    
+    <!-- Top-Right Coral 4-Point Star -->
+    <polygon points="345,85 347,92 354,94 347,96 345,103 343,96 336,94 343,92" fill="#FF7043" filter="url(#portalGlow)" />
+    
+    <!-- Bottom-Left Orange 4-Point Star -->
+    <polygon points="115,260 117,266 123,268 117,270 115,276 113,270 107,268 113,266" fill="#FFA726" />
+    
+    <!-- Floating Spherical Stardust Particles -->
+    <circle cx="145" cy="140" r="3" fill="#FF7043" />
+    <circle cx="150" cy="80" r="2" fill="#80DEEA" />
+    <circle cx="360" cy="120" r="2.5" fill="#FF8A80" />
+    <circle cx="365" cy="270" r="2.5" fill="#00E5FF" />
+    <circle cx="130" cy="285" r="2" fill="#00BCD4" />
+    <circle cx="122" cy="305" r="2.5" fill="#E91E63" />
+    <circle cx="335" cy="335" r="2.5" fill="#BA68C8" />
+  </g>
+</svg>

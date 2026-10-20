@@ -29,7 +29,7 @@ import {
   Crop,
 } from 'lucide-react';
 import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 import {
   VideoSample,
@@ -298,20 +298,27 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
         if (res.ok) {
           const data = await res.json();
           // Merge with Firestore replacements for ultimate truth
-          const snapshot = await getDocs(collection(db, 'gallery_replacements'));
-          const firestoreReplacements: Record<string, any> = {};
-          snapshot.forEach((doc) => {
-            firestoreReplacements[doc.id] = doc.data();
-          });
-
-          if (isMounted) {
-            setReplacedVideos((prev) => {
-              const merged = { ...prev, ...data.replacements, ...firestoreReplacements };
-              try {
-                localStorage.setItem('nexverze_replaced_gallery_videos', JSON.stringify(merged));
-              } catch {}
-              return merged;
+          try {
+            const snapshot = await getDocs(collection(db, 'gallery_replacements'));
+            const firestoreReplacements: Record<string, any> = {};
+            snapshot.forEach((doc) => {
+              firestoreReplacements[doc.id] = doc.data();
             });
+
+            if (isMounted) {
+              setReplacedVideos((prev) => {
+                const merged = { ...prev, ...data.replacements, ...firestoreReplacements };
+                try {
+                  localStorage.setItem('nexverze_replaced_gallery_videos', JSON.stringify(merged));
+                } catch {}
+                return merged;
+              });
+            }
+          } catch (fsErr) {
+            console.warn('Firestore connection notice (using cached server replacements):', fsErr);
+            if (isMounted) {
+              setReplacedVideos((prev) => ({ ...prev, ...data.replacements }));
+            }
           }
         }
       } catch (err) {
@@ -518,15 +525,20 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
       });
 
       // Sync to Firestore for permanent persistence
-      await setDoc(doc(db, 'gallery_replacements', targetId), {
-        ...updatedReplacement,
-        updated_at: new Date().toISOString(),
-      });
+      try {
+        await setDoc(doc(db, 'gallery_replacements', targetId), {
+          ...updatedReplacement,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (fsErr) {
+        console.warn('Notice syncing replacement to Firestore:', fsErr);
+        if (fsErr instanceof Error && fsErr.message.includes('permission')) {
+          handleFirestoreError(fsErr, OperationType.WRITE, `gallery_replacements/${targetId}`);
+        }
+      }
     } catch (saveErr) {
-      console.error('CRITICAL: Failed to sync metadata to server/firestore:', saveErr);
-      setModalNotice('⚠️ Error saving to cloud. Please try again.');
-      setIsUploading(false);
-      return;
+      console.error('Notice syncing metadata to server:', saveErr);
+      setModalNotice('⚠️ Notice saving cloud copy. Local version saved.');
     }
 
     // 7. Update replacedVideos map and persist to localStorage
@@ -585,7 +597,10 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
     try {
       await deleteDoc(doc(db, 'gallery_replacements', videoId));
     } catch (e) {
-      console.error('CRITICAL: Failed removing from Firestore:', e);
+      console.warn('Notice removing from Firestore:', e);
+      if (e instanceof Error && e.message.includes('permission')) {
+        handleFirestoreError(e, OperationType.DELETE, `gallery_replacements/${videoId}`);
+      }
     }
 
     setTargetVideoToReplace(null);

@@ -8,9 +8,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /test/{docId} {
+      allow read: if true;
+    }
+
     match /gallery_replacements/{replacementId} {
       allow read: if true;
-      // Allow unauthenticated writes to gallery_replacements to unblock creator
+      // Allow writes to gallery_replacements with valid ID
       allow create, update, delete: if isValidId(replacementId);
     }
   }

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { StudioUser } from '../lib/supabase';
 import { Sparkles, Coins, Layers, LogOut, Globe, ChevronDown, Check, UploadCloud, RotateCcw } from 'lucide-react';
 import { useLanguage, SUPPORTED_LANGUAGES } from '../context/LanguageContext';
+import { NexVerzeLogo } from './NexVerzeLogo';
 
 interface HeaderProps {
   user: StudioUser | null;
@@ -26,54 +27,19 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { language, setLanguage, t, currentLangInfo } = useLanguage();
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-  const [iconError, setIconError] = useState(false);
-  const [textError, setTextError] = useState(false);
 
-  // Custom Uploaded Header Logo State & Toggle Switch with localStorage persistence
-  const [customLogo, setCustomLogo] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('custom_header_logo');
-      if (stored && (stored.includes('Screenshot') || stored.includes('removebg') || stored.includes('c2ca3d72'))) {
+  // Ensure stale temporary upload logos are cleared from localStorage
+  React.useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
         localStorage.removeItem('custom_header_logo');
-        return null;
+        localStorage.removeItem('logo_upload_switch');
+        localStorage.removeItem('custom_logo_data');
       }
-      return stored;
+    } catch {
+      // Ignore
     }
-    return null;
-  });
-
-  const [isUploadOptionOn, setIsUploadOptionOn] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('logo_upload_switch') !== 'false';
-    }
-    return true;
-  });
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setCustomLogo(result);
-        localStorage.setItem('custom_header_logo', result);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleResetLogo = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setCustomLogo(null);
-    localStorage.removeItem('custom_header_logo');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  }, []);
 
   const isDevPreview = typeof window !== 'undefined' && (
     window.location.hostname.includes('dev') ||
@@ -86,119 +52,24 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-50 px-3 sm:px-6 py-2.5 bg-[#0a0a12]/90 backdrop-blur-md border-b border-white/[0.04]">
-      {/* TOP HEADER - NEXVERZE STUDIO LOGO (With ON/OFF Switch & Custom Upload Option) */}
+      {/* TOP HEADER - NEXVERZE STUDIO BRAND */}
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
-        {/* Brand & Upload Container: Top-Left Header Area with ON/OFF Switch Below Logo */}
-        <div className="flex flex-col gap-1">
-          {/* Top Logo Row */}
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleLogoUpload}
-              accept="image/png,image/svg+xml,image/webp,image/jpeg,image/gif"
-              className="hidden"
-            />
-
-            <a
-              href="/"
-              onClick={(e) => {
-                e.preventDefault();
-                setActiveView('studio');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="brand flex items-center hover:opacity-95 transition-opacity py-0.5 px-0.5 bg-transparent border-none shadow-none cursor-pointer"
-              style={{ textDecoration: 'none', background: 'transparent' }}
-              title="NEXVERZE STUDIO - Home"
-            >
-              {customLogo ? (
-                /* Custom Uploaded Logo - Scaled to fit */
-                <img
-                  src={customLogo}
-                  alt="Custom Header Logo"
-                  className="h-[48px] sm:h-[58px] md:h-[66px] max-h-[72px] w-auto object-contain transition-transform duration-300 hover:scale-105"
-                  style={{
-                    objectFit: 'contain',
-                    background: 'transparent',
-                    filter: 'drop-shadow(0 0 16px rgba(0,212,255,0.45)) drop-shadow(0 0 24px rgba(255,140,0,0.35))',
-                    imageRendering: '-webkit-optimize-contrast',
-                  }}
-                />
-              ) : (
-                /* Seamless Transparent Blended Logo Lockup */
-                <img
-                  src="/nexverze-logo-full.png"
-                  alt="NEXVERZE STUDIO"
-                  className="h-[48px] sm:h-[58px] md:h-[66px] max-h-[72px] w-auto object-contain transition-transform duration-300 hover:scale-105"
-                  style={{
-                    objectFit: 'contain',
-                    background: 'transparent',
-                    filter: 'drop-shadow(0 0 16px rgba(0,212,255,0.45)) drop-shadow(0 0 24px rgba(255,140,0,0.35))',
-                    imageRendering: '-webkit-optimize-contrast',
-                  }}
-                  onError={(e) => {
-                    (e.currentTarget as HTMLElement).style.display = 'none';
-                    const fallback = document.getElementById('header-fallback-logo');
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
-              )}
-              {/* Resilient fallback for icon + text if needed */}
-              <div id="header-fallback-logo" className="hidden items-center gap-3">
-                <img
-                  src="/nexverze-knot-icon.png"
-                  alt="NEXVERZE Icon"
-                  className="h-[52px] sm:h-[60px] w-auto object-contain"
-                  style={{ filter: 'drop-shadow(0 0 14px rgba(0,212,255,0.75)) drop-shadow(0 0 20px rgba(255,140,0,0.55))' }}
-                />
-                <img
-                  src="/nexverze-text-brand.png"
-                  alt="NEXVERZE STUDIO"
-                  className="h-[36px] sm:h-[44px] w-auto object-contain"
-                  style={{ filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.3))' }}
-                />
-              </div>
-            </a>
-
-            {/* Logo Upload Trigger Button (Visible only when switch is ON) */}
-            {isDevPreview && isUploadOptionOn && (
-              <div className="flex flex-col gap-1 ml-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-2 py-1 text-[10px] bg-purple-500/20 hover:bg-purple-500/40 text-purple-200 rounded border border-purple-500/30 transition-colors"
-                >
-                  {customLogo ? 'Change' : 'Upload'}
-                </button>
-                {customLogo && (
-                  <button
-                    onClick={handleResetLogo}
-                    className="px-2 py-1 text-[10px] bg-red-500/10 hover:bg-red-500/30 text-red-300 rounded border border-red-500/20 transition-colors"
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Logo Upload Toggle Switch */}
-          {isDevPreview && (
-            <div className="flex items-center gap-2 mt-0.5">
-              <button
-                onClick={() => {
-                  const newValue = !isUploadOptionOn;
-                  setIsUploadOptionOn(newValue);
-                  localStorage.setItem('logo_upload_switch', String(newValue));
-                }}
-                className={`w-8 h-4 rounded-full p-0.5 transition-colors flex ${isUploadOptionOn ? 'bg-purple-600 justify-end' : 'bg-slate-700 justify-start'}`}
-              >
-                <div className="w-3 h-3 bg-white rounded-full" />
-              </button>
-              <span className="text-[10px] text-white/40 font-mono uppercase">
-                Logo Edit: {isUploadOptionOn ? 'ON' : 'OFF'}
-              </span>
-            </div>
-          )}
+        {/* Permanent Brand Container */}
+        <div className="flex items-center gap-2 relative">
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              setActiveView('studio');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="brand flex items-center hover:opacity-95 transition-opacity py-0.5 px-0.5 bg-transparent border-none shadow-none cursor-pointer"
+            style={{ textDecoration: 'none', background: 'transparent' }}
+            title="NEXVERZE STUDIO - Home"
+          >
+            {/* Master Nexus Horizon Prism Brand Lockup */}
+            <NexVerzeLogo variant="full" size="md" styleOverride="nexus" />
+          </a>
         </div>
 
         {/* Primary Nav Links */}
