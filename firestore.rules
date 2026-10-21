@@ -17,5 +17,11 @@ service cloud.firestore {
       // Allow writes to gallery_replacements with valid ID
       allow create, update, delete: if isValidId(replacementId);
     }
+
+    match /user_favorites/{favoriteId} {
+      allow read: if true;
+      // Allow users to store and manage their favorited creations
+      allow create, update, delete: if isValidId(favoriteId);
+    }
   }
 }

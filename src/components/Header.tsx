@@ -1,13 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StudioUser } from '../lib/supabase';
-import { Sparkles, Coins, Layers, LogOut, Globe, ChevronDown, Check, UploadCloud, RotateCcw } from 'lucide-react';
+import { Sparkles, Coins, Layers, LogOut, Globe, ChevronDown, Check, UploadCloud, RotateCcw, Heart, Film } from 'lucide-react';
 import { useLanguage, SUPPORTED_LANGUAGES } from '../context/LanguageContext';
 import { NexVerzeLogo } from './NexVerzeLogo';
+import { getLocalFavorites, subscribeFavorites } from '../lib/favoritesStorage';
 
 interface HeaderProps {
   user: StudioUser | null;
-  activeView: 'studio' | 'studioApp' | 'history' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact';
-  setActiveView: (view: 'studio' | 'studioApp' | 'history' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact') => void;
+  activeView: 'studio' | 'studioApp' | 'history' | 'favorites' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact';
+  setActiveView: (view: 'studio' | 'studioApp' | 'history' | 'favorites' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact') => void;
   onOpenCreditModal: () => void;
   onOpenAuthModal: () => void;
   onOpenZipModal: () => void;
@@ -27,6 +28,13 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { language, setLanguage, t, currentLangInfo } = useLanguage();
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const [favoritesCount, setFavoritesCount] = useState<number>(() => getLocalFavorites().length);
+
+  useEffect(() => {
+    return subscribeFavorites((items) => {
+      setFavoritesCount(items.length);
+    });
+  }, []);
 
   // Ensure stale temporary upload logos are cleared from localStorage
   React.useEffect(() => {
@@ -87,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
           </a>
           <button
             onClick={() => setActiveView('studio')}
-            className={`px-3 py-1.5 rounded-full font-semibold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-full font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeView === 'studio'
                 ? 'bg-purple-600/30 text-purple-200 border border-purple-400/40'
                 : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
@@ -100,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
           {onOpenSequenceBuilder && (
             <button
               onClick={onOpenSequenceBuilder}
-              className="px-3 py-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Open Sequence Timeline"
             >
               <Layers className="w-3 h-3 text-cyan-400" />
@@ -108,6 +116,37 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
+          {/* History link */}
+          <button
+            onClick={() => setActiveView('history')}
+            className={`px-3 py-1.5 rounded-full font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              activeView === 'history'
+                ? 'bg-purple-600/30 text-purple-200 border border-purple-400/40'
+                : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
+            }`}
+          >
+            <Film className="w-3 h-3 text-purple-400" />
+            <span>History</span>
+          </button>
+
+          {/* New Favorites Page link */}
+          <button
+            onClick={() => setActiveView('favorites')}
+            className={`px-3 py-1.5 rounded-full font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              activeView === 'favorites'
+                ? 'bg-rose-600/30 text-rose-200 border border-rose-400/50 shadow-sm shadow-rose-950/40 ring-1 ring-rose-400/30'
+                : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
+            }`}
+            title="View Liked Creations Page"
+          >
+            <Heart className={`w-3.5 h-3.5 ${favoritesCount > 0 ? 'fill-rose-400 text-rose-400' : 'text-rose-400'}`} />
+            <span>Favorites</span>
+            {favoritesCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-400/30">
+                {favoritesCount}
+              </span>
+            )}
+          </button>
         </nav>
 
         {/* Right Action Buttons */}
@@ -292,24 +331,34 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile nav sub-bar */}
       <div className="flex md:hidden items-center justify-around border-t border-white/[0.04] mt-2 pt-2 px-2 mono text-[11px]">
-        <a href="/" className="text-white/60 py-1 px-3">
+        <a href="/" className="text-white/60 py-1 px-2">
           Home
         </a>
         <button
           onClick={() => setActiveView('studio')}
-          className={`py-1 px-3 rounded-full ${
+          className={`py-1 px-2 rounded-full ${
             activeView === 'studio' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
           }`}
         >
-          Studio PRO
+          Studio
         </button>
         <button
           onClick={() => setActiveView('history')}
-          className={`py-1 px-3 rounded-full ${
+          className={`py-1 px-2 rounded-full ${
             activeView === 'history' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
           }`}
         >
           History
+        </button>
+        <button
+          onClick={() => setActiveView('favorites')}
+          className={`py-1 px-2 rounded-full flex items-center gap-1 ${
+            activeView === 'favorites' ? 'bg-rose-600/30 text-rose-300 font-bold border border-rose-500/30' : 'text-white/60'
+          }`}
+        >
+          <Heart className={`w-3 h-3 ${favoritesCount > 0 ? 'fill-rose-400 text-rose-400' : 'text-rose-400'}`} />
+          <span>Favs</span>
+          {favoritesCount > 0 && <span className="text-[9px] text-rose-300">({favoritesCount})</span>}
         </button>
         <button onClick={onOpenZipModal} className="text-emerald-400 py-1 px-2 font-bold">
           Export

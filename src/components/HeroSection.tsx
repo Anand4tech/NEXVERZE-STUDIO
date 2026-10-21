@@ -38,6 +38,8 @@ import {
   deleteGalleryVideoBlob,
 } from '../lib/galleryStorage';
 import { checkIsLivePreviewCreator } from './ShowcaseGallery';
+import { FloatingCommandBar } from './FloatingCommandBar';
+import { ModelType, DurationType } from '../lib/modelConfig';
 
 interface HeroSectionProps {
   onOpenStudioWithMode: (mode: 'text' | 'image' | 'mobile-to-cinematic') => void;
@@ -64,10 +66,10 @@ interface HomePreviewConfig {
 }
 
 const DEFAULT_HOME_PREVIEW: HomePreviewConfig = {
-  videoUrl: '/videos/user-reference.mp4',
+  videoUrl: '/videos/home-page-preview-panel-video.mp4',
   aspectRatio: '9:16',
-  prompt: 'Cinematic festival celebration with graceful traditional dance performance, glowing festive lanterns, colorful rangoli floor art, sparkling fireworks lighting up the night sky, hyper-detailed 8k photorealistic masterwork',
-  title: 'Festival Dance 4K AI Masterpiece',
+  prompt: 'Cinematic vertical portrait of a beautiful young woman standing in a neon-lit futuristic cyberpunk city under gentle rain, translucent drops glistening on skin, high-tech glowing techwear collar, cinematic shallow depth of field, photorealistic 8k, volumetric bokeh lights',
+  title: 'Cyberpunk Rain Reflection 4K Portrait',
   objectFit: 'cover',
   objectPositionX: 50,
   objectPositionY: 50,
@@ -182,6 +184,47 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       localStorage.setItem('nexverze_home_auto_loop', String(isAutoLoop));
     }
   }, [isAutoLoop]);
+
+  // Floating Command Center Prompt Bar States (Runway & Midjourney Style)
+  const [commandPrompt, setCommandPrompt] = useState<string>(
+    'Cinematic vertical portrait of a beautiful young woman standing in a neon-lit futuristic cyberpunk city under gentle rain, translucent drops glistening on skin, high-tech glowing techwear collar, cinematic shallow depth of field, photorealistic 8k, volumetric bokeh lights'
+  );
+  const [commandModel, setCommandModel] = useState<ModelType>('luma');
+  const [commandRatio, setCommandRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+  const [commandDuration, setCommandDuration] = useState<DurationType>('5s');
+  const [commandMotion, setCommandMotion] = useState<number>(6);
+  const [remixHighlight, setRemixHighlight] = useState<boolean>(false);
+  const [remixPillNotice, setRemixPillNotice] = useState<string | null>(null);
+
+  // Catch remix actions from any card in the showcase gallery
+  useEffect(() => {
+    const handleRemixEvent = (e: any) => {
+      const detail = e.detail;
+      if (detail) {
+        if (detail.prompt) setCommandPrompt(detail.prompt);
+        if (detail.modelName) {
+          const m = detail.modelName.toLowerCase();
+          if (m.includes('kling')) setCommandModel('kling');
+          else if (m.includes('veo')) setCommandModel('veo');
+          else if (m.includes('wan')) setCommandModel('wan');
+          else if (m.includes('hunyuan')) setCommandModel('hunyuan');
+          else if (m.includes('ltx')) setCommandModel('ltx');
+          else setCommandModel('luma');
+        }
+        if (detail.duration) setCommandDuration(detail.duration);
+        if (detail.aspectRatio) setCommandRatio(detail.aspectRatio);
+        if (detail.motionIntensity) setCommandMotion(detail.motionIntensity);
+        setRemixHighlight(true);
+        setRemixPillNotice(`⚡ Remixed Prompt Loaded (${detail.aspectRatio || '9:16'})`);
+        setTimeout(() => {
+          setRemixHighlight(false);
+          setRemixPillNotice(null);
+        }, 4000);
+      }
+    };
+    window.addEventListener('nexverze-remix-action', handleRemixEvent);
+    return () => window.removeEventListener('nexverze-remix-action', handleRemixEvent);
+  }, []);
 
 
   // Creator Mode (Show to Me) toggle - ONLY available if isLivePreview is true
@@ -757,17 +800,56 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* 1. THE "FLOATING COMMAND CENTER" PROMPT BAR (Runway & Midjourney Style)    */}
+      {/* ========================================================================= */}
+      <div className="max-w-4xl mx-auto px-1 sm:px-2">
+        <FloatingCommandBar
+          prompt={commandPrompt}
+          onPromptChange={setCommandPrompt}
+          selectedModel={commandModel}
+          onModelChange={setCommandModel}
+          selectedRatio={commandRatio}
+          onRatioChange={setCommandRatio}
+          selectedDuration={commandDuration}
+          onDurationChange={setCommandDuration}
+          motionIntensity={commandMotion}
+          onMotionIntensityChange={setCommandMotion}
+          highlightRemix={remixHighlight}
+          remixNotice={remixPillNotice}
+          onClearPrompt={() => setCommandPrompt('')}
+          onGenerate={() => {
+            if (onRemixVideo) {
+              onRemixVideo({
+                prompt: commandPrompt,
+                modelName: commandModel,
+                duration: commandDuration,
+                aspectRatio: commandRatio,
+                motionIntensity: commandMotion,
+              });
+            } else {
+              onOpenStudioWithMode('text');
+            }
+          }}
+        />
+      </div>
+
+      {/* ========================================================================= */}
       {/* HOME PAGE PREVIEW PANEL (Title hidden from users; shows video only)       */}
       {/* Features: auto play video, audio on/off (default off), upload & replace,  */}
       {/* remix, button 9:16, 16:9, 1:1, edit button (decide ratio & save video)    */}
+      {/* Enhanced with Ambient Video Glow (Apple TV / YouTube Cinema Effect)        */}
       {/* ========================================================================= */}
-      <div className="relative max-w-3xl mx-auto rounded-3xl overflow-hidden border border-purple-500/30 bg-[#0c0a1a] shadow-[0_0_50px_rgba(168,85,247,0.18)] p-3 sm:p-5 space-y-4">
-        {/* Video Viewport Container */}
-        <div
-          onPointerDown={isCreatorMode ? handleFramingPointerDown : undefined}
-          onPointerMove={isCreatorMode ? handleFramingPointerMove : undefined}
-          onPointerUp={isCreatorMode ? handleFramingPointerUp : undefined}
-          onPointerCancel={isCreatorMode ? handleFramingPointerUp : undefined}
+      <div className="relative max-w-3xl mx-auto group">
+        {/* Ambient Video Glow (The Apple TV / YouTube Cinema Effect) */}
+        <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-r from-purple-600/35 via-fuchsia-600/30 to-pink-600/35 rounded-3xl blur-3xl opacity-50 group-hover:opacity-90 transition-all duration-700 pointer-events-none -z-10 animate-pulse" />
+
+        <div className="relative rounded-3xl overflow-hidden border border-purple-500/30 bg-[#0c0a1a] shadow-[0_0_50px_rgba(168,85,247,0.22)] p-3 sm:p-5 space-y-4">
+          {/* Video Viewport Container */}
+          <div
+            onPointerDown={isCreatorMode ? handleFramingPointerDown : undefined}
+            onPointerMove={isCreatorMode ? handleFramingPointerMove : undefined}
+            onPointerUp={isCreatorMode ? handleFramingPointerUp : undefined}
+            onPointerCancel={isCreatorMode ? handleFramingPointerUp : undefined}
           className={`relative w-full flex items-center justify-center overflow-hidden rounded-2xl bg-black/80 select-none touch-none transition-all ${
             isCreatorMode
               ? isDraggingFraming
@@ -1172,6 +1254,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
         )}
       </div>
+    </div>
 
       {/* ========================================================================= */}
       {/* MODAL 1: UPLOAD & REPLACE VIDEO                                           */}

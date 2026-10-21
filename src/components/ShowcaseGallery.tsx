@@ -16,6 +16,7 @@ import {
   Smartphone,
   Square,
   Volume2,
+  Volume1,
   VolumeX,
   X,
   ExternalLink,
@@ -27,6 +28,21 @@ import {
   Maximize2,
   Sliders,
   Crop,
+  Download,
+  Camera,
+  Layers,
+  Repeat,
+  Settings,
+  Palette,
+  Gauge,
+  Zap,
+  ShieldCheck,
+  Clock,
+  Copy,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Heart,
 } from 'lucide-react';
 import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -42,11 +58,26 @@ import {
   loadAllGalleryVideoBlobs,
   deleteGalleryVideoBlob,
 } from '../lib/galleryStorage';
+import {
+  QualityLockPlayer,
+  ColorGradingPreset,
+  SceneTransitionType,
+  COLOR_GRADING_PRESETS,
+  KeyframePromptOverride,
+} from './QualityLockPlayer';
+import {
+  isCreationFavorited,
+  toggleFavoriteCreation,
+  subscribeFavorites,
+} from '../lib/favoritesStorage';
 
 interface ShowcaseGalleryProps {
-  onRemixVideo: (sample: VideoSample) => void;
+  onRemixVideo: (sample: any) => void;
   onOpenStudioWithMode?: (mode: 'text' | 'image') => void;
   currentUserEmail?: string | null;
+  isFreeUser?: boolean;
+  onOpenPlans?: () => void;
+  user?: { id: string; email: string; credits: number } | null;
 }
 
 // Robust detector to ensure "Upload & Replace" is ONLY shown to the creator in LIVE PREVIEW
@@ -167,14 +198,1234 @@ const extractThumbnailFromVideo = (file: File): Promise<string> => {
   });
 };
 
+// =========================================================================
+// SHOWCASE VIDEO CARD (Equipped with full Home Page Preview Panel features)
+// =========================================================================
+interface ShowcaseVideoCardProps {
+  video: VideoSample & { isCustomReplaced?: boolean; hasVideo?: boolean };
+  activeVideoSrc?: string;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+  showCreatorButtons: boolean;
+  onOpenReplaceModal: (video: VideoSample) => void;
+  onRevertToOriginal: (videoId: string, title: string) => void;
+  onRemixVideo: (config: any) => void;
+  onOpenStudioModal: (video: VideoSample) => void;
+  onShareVideo: (video: VideoSample) => void;
+  setGalleryNotice: (notice: string | null) => void;
+  isFreeUser?: boolean;
+  onOpenPlans?: () => void;
+  currentUserEmail?: string | null;
+  COLOR_FILTER_MAP: Record<ColorGradingPreset, string>;
+  formatTimecode: (seconds: number) => string;
+  getMotionLabel: (val: number) => string;
+}
+
+export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
+  video,
+  activeVideoSrc,
+  isPlaying,
+  onTogglePlay,
+  showCreatorButtons,
+  onOpenReplaceModal,
+  onRevertToOriginal,
+  onRemixVideo,
+  onOpenStudioModal,
+  onShareVideo,
+  setGalleryNotice,
+  isFreeUser,
+  onOpenPlans,
+  currentUserEmail,
+  COLOR_FILTER_MAP,
+  formatTimecode,
+  getMotionLabel,
+}) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Playback & Scrubbing state
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(10);
+  const [isMuted, setIsMuted] = useState(true);
+  const [volume, setVolume] = useState(1);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [isLooping, setIsLooping] = useState(true);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
+
+  // Home Page Preview Panel equivalent tools:
+  const [colorGrading, setColorGrading] = useState<ColorGradingPreset>('Normal');
+  const [is2xUpscaled, setIs2xUpscaled] = useState(false);
+  const [isFrameSmoothing, setIsFrameSmoothing] = useState(false);
+  const [isWatermarkActive, setIsWatermarkActive] = useState(false);
+  const [motionIntensity, setMotionIntensity] = useState<number>(6);
+  const [sceneTransition, setSceneTransition] = useState<SceneTransitionType>('Crossfade');
+
+  // Favorites / Like state with heart burst animation:
+  const [isLiked, setIsLiked] = useState<boolean>(() => isCreationFavorited(video.id));
+  const [isAnimatingHeart, setIsAnimatingHeart] = useState<boolean>(false);
+  const [floatingHearts, setFloatingHearts] = useState<{ id: number; x: number; y: number }[]>([]);
+
+  // Synchronize favorite status in real time
+  useEffect(() => {
+    return subscribeFavorites((items) => {
+      setIsLiked(items.some((f) => f.videoId === video.id || f.id === video.id));
+    });
+  }, [video.id]);
+
+  // Toggle favorite with heart burst animation
+  const handleToggleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsAnimatingHeart(true);
+    setTimeout(() => setIsAnimatingHeart(false), 700);
+
+    // Spawn floating micro-hearts burst particles
+    const particles = [
+      { id: Date.now() + 1, x: (Math.random() - 0.5) * 26, y: -22 },
+      { id: Date.now() + 2, x: (Math.random() - 0.5) * 40, y: -38 },
+      { id: Date.now() + 3, x: (Math.random() - 0.5) * 18, y: -52 },
+    ];
+    setFloatingHearts(particles);
+    setTimeout(() => setFloatingHearts([]), 1100);
+
+    const nextState = await toggleFavoriteCreation(
+      {
+        id: video.id,
+        videoId: video.id,
+        title: video.title || 'Showcase Creation',
+        prompt: video.prompt || '',
+        model: video.model || 'luma',
+        aspect_ratio: video.aspect_ratio || '9:16',
+        video_url: activeVideoSrc || video.video_url,
+        thumbnail_url: video.thumbnail_url || '',
+        duration: video.duration || '10s',
+      },
+      currentUserEmail
+    );
+    setIsLiked(nextState);
+
+    if (nextState) {
+      setGalleryNotice(`❤️ Saved "${video.title}" to Favorites! You can access it anytime in History → Favorites.`);
+    } else {
+      setGalleryNotice(`💔 Removed "${video.title}" from Favorites.`);
+    }
+    setTimeout(() => setGalleryNotice(null), 3200);
+  };
+
+  // Interactive extras:
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showKeyframes, setShowKeyframes] = useState(false);
+  const [keyframes, setKeyframes] = useState<KeyframePromptOverride[]>([]);
+  const [newKeyframePrompt, setNewKeyframePrompt] = useState('');
+  const [isExtractingFrame, setIsExtractingFrame] = useState(false);
+  const [activeKeyframeNotice, setActiveKeyframeNotice] = useState<string | null>(null);
+
+  // Hover & Locked Playback state (Runway / Luma style)
+  const [isHovered, setIsHovered] = useState(false);
+  const [isLockedPlaying, setIsLockedPlaying] = useState(false);
+  const [isRemixFlying, setIsRemixFlying] = useState(false);
+
+  const isReplaced = Boolean(video.isCustomReplaced);
+  const hasVideo = Boolean((video.hasVideo || isReplaced) && activeVideoSrc);
+
+  // Play/pause sync with hover and locked status
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    const shouldPlay = isPlaying || isLockedPlaying || isHovered;
+    if (shouldPlay) {
+      vid.play().catch(() => {});
+    } else {
+      vid.pause();
+    }
+  }, [isPlaying, isLockedPlaying, isHovered]);
+
+  // Keyframe notification check on currentTime update
+  useEffect(() => {
+    const matched = keyframes.find((k) => Math.abs(k.timestamp - currentTime) < 0.35);
+    if (matched) {
+      setActiveKeyframeNotice(matched.promptOverride);
+    } else {
+      setActiveKeyframeNotice(null);
+    }
+  }, [currentTime, keyframes]);
+
+  // Seeking
+  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const target = pos * duration;
+    if (videoRef.current && !isNaN(target)) {
+      videoRef.current.currentTime = target;
+      setCurrentTime(target);
+    }
+  };
+
+  const handleScrubHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    setHoverTime(pos * duration);
+  };
+
+  // Hover Timeline Scrubbing (YouTube Style - Suggestion 3)
+  const handleVideoMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!hasVideo || !videoRef.current || duration <= 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scrubRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const targetTime = scrubRatio * duration;
+    setHoverTime(targetTime);
+    
+    // Live scrub video frame to match cursor position across card
+    videoRef.current.currentTime = targetTime;
+    setCurrentTime(targetTime);
+  };
+
+  // Speed cycle
+  const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const cycleSpeed = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const idx = speeds.indexOf(playbackSpeed);
+    const next = speeds[(idx + 1) % speeds.length];
+    setPlaybackSpeed(next);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = next;
+    }
+  };
+
+  // Mute toggle
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !isMuted;
+    setIsMuted(next);
+    if (videoRef.current) {
+      videoRef.current.muted = next;
+    }
+  };
+
+  // Volume slider
+  const handleVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    const val = parseFloat(e.target.value);
+    setVolume(val);
+    const shouldMute = val === 0;
+    setIsMuted(shouldMute);
+    if (videoRef.current) {
+      videoRef.current.volume = val;
+      videoRef.current.muted = shouldMute;
+    }
+  };
+
+  // Loop toggle
+  const toggleLoop = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !isLooping;
+    setIsLooping(next);
+    if (videoRef.current) {
+      videoRef.current.loop = next;
+    }
+  };
+
+  // Fullscreen
+  const toggleFullscreen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const el = cardRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      el.requestFullscreen().catch(() => {});
+    }
+  };
+
+  // Extract Frame (Camera Snapshot PNG)
+  const handleExtractFrame = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const vid = videoRef.current;
+    if (!vid) return;
+
+    try {
+      setIsExtractingFrame(true);
+      const canvas = document.createElement('canvas');
+      const w = is2xUpscaled ? (vid.videoWidth || 1080) * 2 : (vid.videoWidth || 1080);
+      const h = is2xUpscaled ? (vid.videoHeight || 1920) * 2 : (vid.videoHeight || 1920);
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context unavailable');
+
+      if (colorGrading !== 'Normal') {
+        ctx.filter = COLOR_FILTER_MAP[colorGrading];
+      }
+
+      ctx.drawImage(vid, 0, 0, w, h);
+
+      if (isWatermarkActive) {
+        ctx.save();
+        ctx.font = 'bold 28px sans-serif';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+        ctx.shadowBlur = 8;
+        ctx.fillText('NexVerze Studio • AI Protected', 40, h - 40);
+        ctx.restore();
+      }
+
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      const cleanTitle = (video.title || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      a.download = `nexverze-${cleanTitle}-frame-${currentTime.toFixed(1)}s.png`;
+      a.href = dataUrl;
+      a.click();
+
+      setGalleryNotice(`📸 Extracted high-res frame for "${video.title}" at ${currentTime.toFixed(1)}s!`);
+      setTimeout(() => setGalleryNotice(null), 3000);
+    } catch (err) {
+      console.error('Frame extract error:', err);
+    } finally {
+      setIsExtractingFrame(false);
+    }
+  };
+
+  // Download Master MP4
+  const handleDownloadMp4 = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cleanTitle = (video.title || 'video').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const a = document.createElement('a');
+    a.href = activeVideoSrc || video.video_url;
+    a.download = `${cleanTitle}.mp4`;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setGalleryNotice(`⬇️ Downloading master MP4: "${video.title}"`);
+    setTimeout(() => setGalleryNotice(null), 3000);
+  };
+
+  // Frictionless "1-Tap Remix" Floating Action (Suggestion 5)
+  const handleRemix = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsRemixFlying(true);
+    setTimeout(() => setIsRemixFlying(false), 1400);
+
+    onRemixVideo({
+      prompt: video.prompt,
+      modelName: video.model,
+      duration: video.duration || '10s',
+      aspectRatio: video.aspect_ratio,
+      motionIntensity,
+      sceneTransition,
+      colorGrading,
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('nexverze-remix-action', {
+          detail: {
+            prompt: video.prompt,
+            modelName: video.model,
+            duration: video.duration || '5s',
+            aspectRatio: video.aspect_ratio,
+            motionIntensity,
+          },
+        })
+      );
+    }
+
+    setTimeout(() => {
+      const commandBar = document.getElementById('floating-command-bar') || document.getElementById('studio-prompt-textarea');
+      if (commandBar) {
+        commandBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+
+    setGalleryNotice(`✨ Remixed "${video.title}" into Command Center! Ready to generate.`);
+    setTimeout(() => setGalleryNotice(null), 3500);
+  };
+
+  // Social Sharing
+  const handleShare = (platform: 'twitter' | 'linkedin' | 'whatsapp' | 'copy') => {
+    const shareText = `Check out "${video.title}" created with NexVerze Studio! Prompt: ${video.prompt}`;
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : 'https://nexverze.ai';
+
+    if (platform === 'twitter') {
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+    } else if (platform === 'linkedin') {
+      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank');
+    } else if (platform === 'whatsapp') {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank');
+    } else {
+      navigator.clipboard?.writeText(`${shareText}\n${shareUrl}`);
+      setGalleryNotice(`📋 Copied details & link for "${video.title}"!`);
+      setTimeout(() => setGalleryNotice(null), 3000);
+    }
+    setShowShareMenu(false);
+  };
+
+  // Add Keyframe at current timestamp
+  const handleAddKeyframe = (e: React.FormEvent) => {
+    e.preventDefault();
+    const ts = Math.round(currentTime * 10) / 10;
+    const newKf: KeyframePromptOverride = {
+      id: `kf-${Date.now()}`,
+      timestamp: ts,
+      promptOverride: newKeyframePrompt.trim() || `Dynamic scene transition at ${ts}s with enhanced lighting`,
+      motionStrength: 'dynamic',
+      cameraMove: 'zoom-in',
+    };
+    setKeyframes((prev) => [...prev, newKf].sort((a, b) => a.timestamp - b.timestamp));
+    setNewKeyframePrompt('');
+    setGalleryNotice(`📍 Added keyframe override at ${ts}s for "${video.title}"`);
+    setTimeout(() => setGalleryNotice(null), 3000);
+  };
+
+  const removeKeyframe = (id: string) => {
+    setKeyframes((prev) => prev.filter((k) => k.id !== id));
+  };
+
+  const seekToKeyframe = (ts: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = ts;
+      setCurrentTime(ts);
+    }
+  };
+
+  const ratioClass =
+    video.aspect_ratio === '16:9'
+      ? 'aspect-[16/9]'
+      : video.aspect_ratio === '1:1'
+      ? 'aspect-square'
+      : 'aspect-[9/16]';
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  // Social proof formatted metrics (Suggestion 4)
+  const baseLikes = video.likesCount || 2480;
+  const currentLikes = isLiked ? baseLikes + 1 : baseLikes;
+  const formattedLikes = currentLikes >= 1000 ? `${(currentLikes / 1000).toFixed(1)}k` : currentLikes;
+  const baseViews = video.viewsCount || 18400;
+  const formattedViews = baseViews >= 1000 ? `${(baseViews / 1000).toFixed(1)}k` : baseViews;
+
+  return (
+    <div className="relative group/card w-full">
+      {/* Ambient Video Glow (The "Apple TV / YouTube Cinema" Effect - Suggestion 3) */}
+      <div
+        className={`absolute -inset-2.5 sm:-inset-3 rounded-3xl blur-2xl transition-all duration-500 pointer-events-none -z-10 ${
+          video.dominantGlow === 'cyan'
+            ? 'bg-gradient-to-r from-cyan-500/35 via-blue-500/25 to-teal-500/35'
+            : video.dominantGlow === 'amber'
+            ? 'bg-gradient-to-r from-amber-500/35 via-orange-500/25 to-yellow-500/35'
+            : video.dominantGlow === 'magenta'
+            ? 'bg-gradient-to-r from-fuchsia-500/35 via-pink-500/25 to-rose-500/35'
+            : video.dominantGlow === 'rose'
+            ? 'bg-gradient-to-r from-rose-500/35 via-pink-500/25 to-orange-500/35'
+            : video.dominantGlow === 'emerald'
+            ? 'bg-gradient-to-r from-emerald-500/35 via-teal-500/25 to-cyan-500/35'
+            : 'bg-gradient-to-r from-purple-600/40 via-fuchsia-600/30 to-pink-600/40'
+        } ${
+          isHovered || isPlaying
+            ? 'opacity-85 scale-[1.02] animate-pulse'
+            : 'opacity-0 scale-95'
+        }`}
+      />
+
+      {/* Frictionless 1-Tap Remix Floating Upward Overlay (Suggestion 5) */}
+      {isRemixFlying && (
+        <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white font-extrabold text-xs mono shadow-2xl flex items-center gap-2 animate-bounce ring-2 ring-purple-300">
+            <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+            <span>Remixing into Command Center 🚀</span>
+          </div>
+        </div>
+      )}
+
+      <div
+        ref={cardRef}
+        className={`group bg-[#121020] border rounded-2xl overflow-hidden shadow-xl transition-all duration-300 flex flex-col justify-between ${
+          isReplaced && showCreatorButtons
+            ? 'border-amber-500/60 ring-1 ring-amber-500/30 shadow-amber-950/20'
+            : hasVideo
+            ? 'border-[#272738] hover:border-purple-500/50'
+            : 'border-dashed border-purple-500/30 hover:border-amber-400/60 bg-[#121020]/70'
+        }`}
+      >
+      {/* ========================================================================= */}
+      {/* 1. VIDEO VIEWPORT CONTAINER                                               */}
+      {/* ========================================================================= */}
+      <div
+        className={`relative ${ratioClass} bg-black/90 overflow-hidden cursor-pointer flex items-center justify-center select-none group/player`}
+        onMouseEnter={() => {
+          if (hasVideo) {
+            setIsHovered(true);
+          }
+        }}
+        onMouseMove={handleVideoMouseMove}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          setHoverTime(null);
+        }}
+        onTouchStart={() => {
+          if (hasVideo) {
+            setIsLockedPlaying((prev) => !prev);
+            onTogglePlay();
+          }
+        }}
+        onClick={() => {
+          if (hasVideo) {
+            const nextLocked = !isLockedPlaying;
+            setIsLockedPlaying(nextLocked);
+            if (!nextLocked) {
+              setIsHovered(false);
+            }
+            onTogglePlay();
+          } else if (showCreatorButtons) {
+            onOpenReplaceModal(video);
+          }
+        }}
+      >
+        {hasVideo && activeVideoSrc ? (
+          <>
+            <video
+              ref={videoRef}
+              key={`${video.id}-${activeVideoSrc}`}
+              src={activeVideoSrc}
+              poster={video.thumbnail_url || undefined}
+              loop={isLooping}
+              muted={isMuted}
+              playsInline
+              preload="auto"
+              crossOrigin="anonymous"
+              style={{
+                objectFit: video.objectFit || 'cover',
+                objectPosition: `${video.objectPositionX ?? 50}% ${video.objectPositionY ?? 50}%`,
+                transform: video.zoomScale && video.zoomScale !== 1 ? `scale(${video.zoomScale})` : undefined,
+                transformOrigin: `${video.objectPositionX ?? 50}% ${video.objectPositionY ?? 50}%`,
+                filter: COLOR_FILTER_MAP[colorGrading],
+              }}
+              className={`w-full h-full transition-transform duration-500 ${
+                isFrameSmoothing ? 'transition-all duration-300 blur-[0.2px]' : ''
+              }`}
+              onTimeUpdate={() => {
+                if (videoRef.current) setCurrentTime(videoRef.current.currentTime);
+              }}
+              onLoadedMetadata={() => {
+                if (videoRef.current) setDuration(videoRef.current.duration || 10);
+              }}
+              onError={(e) => {
+                const el = e.target as HTMLVideoElement;
+                const fallbackUrl = '/videos/festival-dance-9-16.mp4';
+                if (el.src !== fallbackUrl) {
+                  el.src = fallbackUrl;
+                }
+              }}
+            />
+
+            {/* 2X AI UPSCALE CINEMATIC SHEEN OVERLAY */}
+            {is2xUpscaled && (
+              <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-cyan-500/10 via-transparent to-purple-500/10 mix-blend-screen animate-pulse" />
+            )}
+
+            {/* WATERMARK OVERLAY (When active) */}
+            {isWatermarkActive && (
+              <div className="absolute bottom-12 right-3 pointer-events-none flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 border border-white/20 backdrop-blur-md text-[10px] mono text-white/90 shadow-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                <span>NexVerze Studio</span>
+              </div>
+            )}
+
+            {/* ACTIVE KEYFRAME OVERRIDE BANNER */}
+            {activeKeyframeNotice && (
+              <div className="absolute top-10 left-3 right-3 pointer-events-none z-20 px-3 py-1.5 rounded-xl bg-purple-950/90 border border-purple-400/50 backdrop-blur-md text-white text-[10px] mono shadow-lg animate-in slide-in-from-top-1">
+                <span className="text-purple-300 font-bold">🎯 Keyframe Override:</span> "{activeKeyframeNotice}"
+              </div>
+            )}
+
+            {/* CENTER PLAY/PAUSE ICON OVERLAY (Hidden during active hover preview or playback) */}
+            {!isPlaying && !isHovered && !isLockedPlaying && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/10 transition-colors pointer-events-none">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-600 to-pink-600 text-white backdrop-blur-md flex items-center justify-center shadow-xl transition-transform group-hover:scale-110">
+                  <Play className="w-5 h-5 fill-white ml-0.5" />
+                </div>
+              </div>
+            )}
+
+            {/* HOVER PREVIEW PILL INDICATOR (Runway / Pika style) */}
+            {isHovered && !isLockedPlaying && !isPlaying && (
+              <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20 pointer-events-none px-2.5 py-0.5 rounded-full bg-black/80 border border-purple-400/50 backdrop-blur-md text-white text-[9px] mono font-bold shadow-lg animate-in fade-in flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Hover Preview</span>
+              </div>
+            )}
+
+            {/* HOVER SCRUB TIMECODE BUBBLE (YouTube Style - Suggestion 3) */}
+            {hoverTime !== null && isHovered && (
+              <div
+                className="absolute bottom-12 pointer-events-none z-30 px-2 py-0.5 rounded-md bg-black/90 border border-purple-400/60 text-white text-[10px] mono font-bold shadow-xl -translate-x-1/2 transition-all duration-75"
+                style={{ left: `${Math.min(88, Math.max(12, (hoverTime / (duration || 1)) * 100))}%` }}
+              >
+                {formatTimecode(hoverTime)}
+              </div>
+            )}
+
+            {/* 1-CLICK UNMUTE PILL ON HOVER (Suggestion 2) */}
+            {hasVideo && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMute(e);
+                }}
+                className={`absolute bottom-3 right-3 z-30 flex items-center gap-1.5 px-3 py-1 rounded-full backdrop-blur-md transition-all cursor-pointer shadow-xl active:scale-95 ${
+                  isMuted
+                    ? 'bg-black/85 hover:bg-purple-900/90 border border-purple-400/50 text-purple-200 hover:text-white hover:scale-105 ring-1 ring-purple-500/20'
+                    : 'bg-emerald-950/85 hover:bg-emerald-900 border border-emerald-400/50 text-emerald-300'
+                } ${isHovered || isPlaying ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none'}`}
+                title={isMuted ? 'Click to Unmute Audio' : 'Click to Mute'}
+              >
+                {isMuted ? (
+                  <>
+                    <VolumeX className="w-3.5 h-3.5 text-pink-400 animate-pulse" />
+                    <span className="text-[10px] mono font-bold">Unmute</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-[10px] mono font-bold">Sound On</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* TOP OVERLAY: Model Badge + Quality Lock Shield + Aspect Tag + Quick Actions */}
+            <div
+              className="absolute top-2 left-2 right-2 flex items-center justify-between text-[10px] mono z-20"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-black/80 backdrop-blur-md text-purple-300 font-bold border border-white/10 uppercase">
+                  {video.model === 'luma'
+                    ? 'Luma Ray 2'
+                    : video.model === 'kling'
+                    ? 'Kling v2.5'
+                    : video.model === 'veo' || video.model === 'veo3'
+                    ? 'Veo Ultra'
+                    : video.model === 'wan'
+                    ? 'Wan 2.1'
+                    : video.model === 'hunyuan'
+                    ? 'Hunyuan 13B'
+                    : video.model === 'ltx'
+                    ? 'LTX Fast'
+                    : video.model}
+                </span>
+
+                {/* Quality Lock Raw Badge */}
+                <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-400/40 text-emerald-300 font-semibold text-[9px]">
+                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                  <span>Quality Lock</span>
+                </span>
+
+                {is2xUpscaled && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-400/50 text-cyan-300 font-bold text-[9px]">
+                    4K UHD
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {/* LIKE / FAVORITE HEART BUTTON WITH BURST ANIMATION */}
+                <button
+                  type="button"
+                  onClick={handleToggleLike}
+                  className={`relative p-1.5 rounded-full backdrop-blur-md transition-all duration-300 cursor-pointer shadow-lg active:scale-90 ${
+                    isLiked
+                      ? 'bg-rose-500/90 hover:bg-rose-600 text-white border border-rose-300/80 shadow-rose-500/50 ring-2 ring-rose-400/40'
+                      : 'bg-black/75 hover:bg-black/95 text-white/70 hover:text-rose-400 border border-white/20 hover:border-rose-400/50'
+                  } ${isAnimatingHeart ? 'animate-heart-pop scale-125' : 'scale-100'}`}
+                  title={isLiked ? 'Saved in Favorites (Click to Remove)' : 'Like & Save to Favorites tab in History'}
+                  aria-label={isLiked ? 'Unlike creation' : 'Like creation'}
+                >
+                  <Heart
+                    className={`w-3.5 h-3.5 transition-all duration-300 ${
+                      isLiked ? 'fill-white text-white drop-shadow' : 'text-current'
+                    }`}
+                  />
+                  {/* Floating heart particles animation */}
+                  {floatingHearts.map((fh) => (
+                    <span
+                      key={fh.id}
+                      className="absolute pointer-events-none text-xs animate-float-heart z-40 select-none"
+                      style={{
+                        left: `calc(50% + ${fh.x}px)`,
+                        top: `calc(50% + ${fh.y}px)`,
+                      }}
+                    >
+                      ❤️
+                    </span>
+                  ))}
+                </button>
+
+                {isReplaced && showCreatorButtons && (
+                  <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black font-black text-[9px] uppercase tracking-wider shadow">
+                    Replaced
+                  </span>
+                )}
+
+                <span className="px-2 py-0.5 rounded-full bg-black/80 backdrop-blur-md text-white/90 font-bold border border-white/10">
+                  {video.aspect_ratio}
+                </span>
+
+                {/* Studio View (Maximize to Full QualityLockPlayer Modal) */}
+                <button
+                  type="button"
+                  onClick={() => onOpenStudioModal(video)}
+                  className="p-1 rounded-lg bg-black/70 hover:bg-purple-600 text-white/80 hover:text-white border border-white/10 backdrop-blur-md transition-all cursor-pointer"
+                  title="Open Full Studio Player View"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* BOTTOM OVERLAY: SCRUB BAR & PLAYBACK CONTROLS (Always accessible) */}
+            <div
+              className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent z-20 space-y-1 opacity-90 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Interactive Scrub Timeline Bar */}
+              <div
+                className="relative w-full h-1.5 hover:h-2.5 bg-white/20 rounded-full cursor-pointer transition-all overflow-hidden"
+                onClick={handleScrub}
+                onMouseMove={handleScrubHover}
+                onMouseLeave={() => setHoverTime(null)}
+              >
+                <div
+                  className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-75"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              {/* Timecode & Quick Action Bar */}
+              <div className="flex items-center justify-between text-[10px] mono text-white/80 pt-0.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onTogglePlay}
+                    className="p-1 rounded hover:bg-white/10 text-white cursor-pointer"
+                    title={isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {isPlaying ? <Pause className="w-3 h-3 fill-white" /> : <Play className="w-3 h-3 fill-white" />}
+                  </button>
+
+                  <span className="text-[10px] text-white/70">
+                    {formatTimecode(currentTime)} / {formatTimecode(duration)}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {/* Speed Cycle Button */}
+                  <button
+                    type="button"
+                    onClick={cycleSpeed}
+                    className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white text-[9px] font-bold cursor-pointer"
+                    title="Cycle Playback Speed"
+                  >
+                    {playbackSpeed}x
+                  </button>
+
+                  {/* Loop Toggle */}
+                  <button
+                    type="button"
+                    onClick={toggleLoop}
+                    className={`p-1 rounded cursor-pointer ${
+                      isLooping ? 'text-purple-300 bg-purple-500/20' : 'text-white/50 hover:text-white'
+                    }`}
+                    title={isLooping ? 'Loop Video: ON' : 'Loop Video: OFF'}
+                  >
+                    <Repeat className="w-3 h-3" />
+                  </button>
+
+                  {/* Mute/Volume Toggle */}
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    className="p-1 rounded hover:bg-white/10 text-white/80 hover:text-white cursor-pointer"
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                  </button>
+
+                  {/* Fullscreen Button */}
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    className="p-1 rounded hover:bg-white/10 text-white/70 hover:text-white cursor-pointer"
+                    title="Fullscreen Mode"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Empty Slot State */
+          <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center space-y-2 bg-gradient-to-br from-[#16122c] to-[#0c091a]">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-400/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+              <Upload className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-white/90 block">
+                {video.aspect_ratio === '16:9'
+                  ? '16:9 Widescreen Slot'
+                  : video.aspect_ratio === '1:1'
+                  ? '1:1 Square Slot'
+                  : '9:16 Vertical Slot'}
+              </span>
+              <span className="text-[10px] text-amber-300/80 font-mono block">
+                {showCreatorButtons ? 'Click card to upload custom video' : 'Showcase Reel'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. CARD METADATA & COMPREHENSIVE PREVIEW PANEL TOOLSET                     */}
+      {/* ========================================================================= */}
+      <div className="p-3.5 space-y-3 bg-[#0e0c1a] border-t border-[#1d1a30] text-xs">
+        {/* Community Creator & Social Proof Metadata Header (Suggestion 4) */}
+        <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2 min-w-0">
+            <img
+              src={video.creatorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop'}
+              alt={video.creatorHandle || 'Creator'}
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-purple-400/50 shrink-0 shadow-sm"
+            />
+            <span className="font-bold text-white/90 truncate text-[11px] mono">
+              {video.creatorHandle || '@neo_render'}
+            </span>
+            <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white shrink-0 shadow-sm">
+              {video.creatorBadge || 'PRO'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 text-[10px] mono text-white/60 shrink-0">
+            <span className="flex items-center gap-1 text-white/70" title="Community Views">
+              <span>👁️</span>
+              <span>{formattedViews}</span>
+            </span>
+            <span className="flex items-center gap-1 text-rose-400 font-bold" title="Community Likes">
+              <span>❤️</span>
+              <span>{formattedLikes}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Title & Prompt with Hover Lighting */}
+        <div className={`p-2 rounded-xl transition-all duration-300 ${
+          isHovered ? 'bg-[#1a1630] border border-purple-500/40 shadow-md shadow-purple-950/40' : 'bg-transparent border border-transparent'
+        }`}>
+          <div className="flex items-center justify-between gap-1">
+            <h4 className={`font-bold text-xs sm:text-sm line-clamp-1 transition-colors ${isHovered ? 'text-purple-200' : 'text-white group-hover:text-purple-300'}`}>
+              {video.title}
+            </h4>
+            {isReplaced && showCreatorButtons && (
+              <span className="shrink-0 text-[10px] font-bold text-amber-400 mono">
+                [Custom Video]
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-white/70 line-clamp-2 italic font-serif mt-0.5">
+            "{video.prompt}"
+          </p>
+
+          {/* Speed & Quality Tag */}
+          <div className="flex items-center justify-between text-[10px] mono text-purple-300/80 pt-1.5 mt-1 border-t border-white/[0.05]">
+            <span className="flex items-center gap-1 text-amber-300 font-semibold">
+              <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+              <span>{video.renderSpeed || '⚡ 4.2s • 4K UHD'}</span>
+            </span>
+            <span className="text-white/40">{video.duration || '10s'}</span>
+          </div>
+        </div>
+
+        {/* --------------------------------------------------------------------- */}
+        {/* FEATURE ROW 1: COLOR GRADING & ENHANCEMENTS                           */}
+        {/* --------------------------------------------------------------------- */}
+        <div className="pt-2 border-t border-[#1a172c] space-y-2">
+          <div className="flex items-center justify-between gap-1.5 flex-wrap">
+            {/* Color Grading Preset Dropdown */}
+            <div className="flex-1 min-w-[130px]">
+              <div className="flex items-center gap-1 text-[10px] mono text-white/50 mb-1">
+                <Palette className="w-3 h-3 text-purple-400" />
+                <span>Color Grading:</span>
+              </div>
+              <select
+                value={colorGrading}
+                onChange={(e) => setColorGrading(e.target.value as ColorGradingPreset)}
+                className="w-full px-2 py-1 rounded-lg bg-[#18152c] border border-[#2e2a4a] text-white/90 text-[11px] mono focus:outline-none focus:border-purple-400"
+              >
+                {COLOR_GRADING_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quick Toggles: 2x AI Upscale, Smoothing, Watermark */}
+            <div className="flex items-center gap-1 pt-3.5">
+              {/* 2x AI Upscale */}
+              <button
+                type="button"
+                onClick={() => setIs2xUpscaled(!is2xUpscaled)}
+                className={`p-1.5 rounded-lg border text-[10px] mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  is2xUpscaled
+                    ? 'bg-cyan-950/60 border-cyan-400 text-cyan-200 ring-1 ring-cyan-400/30'
+                    : 'bg-[#181528] border-[#2e2a4a] text-white/60 hover:text-white'
+                }`}
+                title="Toggle 2x AI Upscale (4K UHD Emulation)"
+              >
+                <Sparkles className="w-3 h-3 text-cyan-300" />
+                <span>4K</span>
+              </button>
+
+              {/* 60fps Smoothing */}
+              <button
+                type="button"
+                onClick={() => setIsFrameSmoothing(!isFrameSmoothing)}
+                className={`p-1.5 rounded-lg border text-[10px] mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  isFrameSmoothing
+                    ? 'bg-purple-950/60 border-purple-400 text-purple-200 ring-1 ring-purple-400/30'
+                    : 'bg-[#181528] border-[#2e2a4a] text-white/60 hover:text-white'
+                }`}
+                title="Toggle Frame Smoothing (60fps motion review)"
+              >
+                <Layers className="w-3 h-3 text-purple-400" />
+                <span>60fps</span>
+              </button>
+
+              {/* Watermark Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsWatermarkActive(!isWatermarkActive)}
+                className={`p-1.5 rounded-lg border text-[10px] mono font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                  isWatermarkActive
+                    ? 'bg-purple-950/60 border-purple-400 text-purple-200'
+                    : 'bg-[#181528] border-[#2e2a4a] text-white/60 hover:text-white'
+                }`}
+                title="Toggle Semi-transparent NexVerze Watermark"
+              >
+                <ShieldCheck className="w-3 h-3 text-purple-400" />
+                <span>WM</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ------------------------------------------------------------------- */}
+          {/* FEATURE ROW 2: MOTION INTENSITY & SCENE TRANSITIONS                 */}
+          {/* ------------------------------------------------------------------- */}
+          <div className="grid grid-cols-2 gap-2 pt-1 bg-[#151226]/50 p-2 rounded-xl border border-white/5">
+            {/* Motion Intensity (1-10) */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] mono text-white/60">
+                <span className="flex items-center gap-1">
+                  <Gauge className="w-3 h-3 text-amber-400" />
+                  <span>Motion:</span>
+                </span>
+                <span className="text-amber-300 font-bold">
+                  {motionIntensity} ({getMotionLabel(motionIntensity)})
+                </span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={motionIntensity}
+                onChange={(e) => setMotionIntensity(parseInt(e.target.value, 10))}
+                className="w-full h-1 bg-[#262242] rounded-lg appearance-none cursor-pointer accent-amber-400"
+              />
+            </div>
+
+            {/* Scene Transition Dropdown */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1 text-[10px] mono text-white/60">
+                <Zap className="w-3 h-3 text-pink-400" />
+                <span>Transition:</span>
+              </div>
+              <select
+                value={sceneTransition}
+                onChange={(e) => setSceneTransition(e.target.value as SceneTransitionType)}
+                className="w-full px-2 py-0.5 rounded-lg bg-[#18152c] border border-[#2e2a4a] text-white/90 text-[10px] mono focus:outline-none"
+              >
+                <option value="Crossfade">Crossfade</option>
+                <option value="Cut">Cut</option>
+                <option value="Wipe">Wipe</option>
+              </select>
+            </div>
+          </div>
+
+          {/* ------------------------------------------------------------------- */}
+          {/* FEATURE ROW 3: CREATIVE TOOLS (FRAME EXTRACT, MP4, KEYFRAMES, SHARE)*/}
+          {/* ------------------------------------------------------------------- */}
+          <div className="flex items-center justify-between gap-1 pt-1">
+            <div className="flex items-center gap-1">
+              {/* Like / Heart Quick Toggle Button */}
+              <button
+                type="button"
+                onClick={handleToggleLike}
+                className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 text-[10px] mono ${
+                  isLiked
+                    ? 'bg-rose-950/70 border-rose-500/60 text-rose-300 ring-1 ring-rose-500/30 shadow-sm shadow-rose-950/40'
+                    : 'bg-[#181528] hover:bg-rose-950/30 border-[#2e2a4a] text-white/70 hover:text-rose-300'
+                } ${isAnimatingHeart ? 'animate-heart-pop' : ''}`}
+                title={isLiked ? 'Favorited: Saved in History tab' : 'Like & Save to Favorites tab in History'}
+              >
+                <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-rose-400 text-rose-400' : ''}`} />
+                <span className="hidden xs:inline">{isLiked ? 'Liked' : 'Like'}</span>
+              </button>
+
+              {/* Extract Frame (Camera Snapshot PNG) */}
+              <button
+                type="button"
+                onClick={handleExtractFrame}
+                disabled={isExtractingFrame}
+                className="p-1.5 rounded-lg bg-[#181528] hover:bg-purple-900/30 border border-[#2e2a4a] text-white/70 hover:text-white transition-all cursor-pointer"
+                title="Extract High-Res Current Frame (PNG Snapshot)"
+              >
+                <Camera className="w-3.5 h-3.5 text-purple-400" />
+              </button>
+
+              {/* Download Master MP4 */}
+              <button
+                type="button"
+                onClick={handleDownloadMp4}
+                className="p-1.5 rounded-lg bg-[#181528] hover:bg-purple-900/30 border border-[#2e2a4a] text-white/70 hover:text-white transition-all cursor-pointer"
+                title="Download Master MP4 Video"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+              </button>
+
+              {/* Keyframe Overrides Drawer Button */}
+              <button
+                type="button"
+                onClick={() => setShowKeyframes(!showKeyframes)}
+                className={`p-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 text-[10px] mono ${
+                  showKeyframes || keyframes.length > 0
+                    ? 'bg-purple-950/60 border-purple-400 text-purple-300'
+                    : 'bg-[#181528] border-[#2e2a4a] text-white/60 hover:text-white'
+                }`}
+                title="Keyframe Overrides: Set timestamp-based prompt variations"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>{keyframes.length}</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1 relative">
+              {/* Share Button & Popover */}
+              <button
+                type="button"
+                onClick={() => setShowShareMenu(!showShareMenu)}
+                className="p-1.5 rounded-lg bg-[#181528] hover:bg-[#221e38] border border-[#2e2a4a] text-white/70 hover:text-white transition-all cursor-pointer"
+                title="Share Video"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Share Popover Menu */}
+              {showShareMenu && (
+                <div className="absolute right-0 bottom-full mb-1 w-44 rounded-xl bg-[#151226] border border-purple-500/40 p-1.5 shadow-2xl z-30 space-y-1 text-xs mono animate-in fade-in">
+                  <button
+                    type="button"
+                    onClick={() => handleShare('twitter')}
+                    className="w-full text-left px-2 py-1 rounded-lg hover:bg-purple-600/20 text-white/90 hover:text-white flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>Twitter / X</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleShare('whatsapp')}
+                    className="w-full text-left px-2 py-1 rounded-lg hover:bg-purple-600/20 text-white/90 hover:text-white flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>WhatsApp</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleShare('linkedin')}
+                    className="w-full text-left px-2 py-1 rounded-lg hover:bg-purple-600/20 text-white/90 hover:text-white flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>LinkedIn</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleShare('copy')}
+                    className="w-full text-left px-2 py-1 rounded-lg hover:bg-purple-600/20 text-white/90 hover:text-white flex items-center gap-2 cursor-pointer border-t border-white/5 pt-1"
+                  >
+                    <Copy className="w-3 h-3 text-purple-400" />
+                    <span>Copy Link</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Full Studio Player View Expand Button */}
+              <button
+                type="button"
+                onClick={() => onOpenStudioModal(video)}
+                className="p-1.5 rounded-lg bg-gradient-to-r from-purple-900/40 to-indigo-900/40 hover:from-purple-900/60 hover:to-indigo-900/60 border border-purple-500/30 text-purple-300 transition-all cursor-pointer flex items-center gap-1 text-[10px] mono"
+                title="Open in Full Studio Player View"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Studio</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ------------------------------------------------------------------- */}
+          {/* KEYFRAMES OVERRIDES COLLAPSIBLE DRAWER                              */}
+          {/* ------------------------------------------------------------------- */}
+          {showKeyframes && (
+            <div className="p-2.5 rounded-xl bg-[#141124] border border-purple-500/30 space-y-2 text-xs mono animate-in slide-in-from-top-1">
+              <div className="flex items-center justify-between text-[10px] text-white/60 border-b border-white/5 pb-1">
+                <span className="font-bold text-purple-300">Keyframe Prompt Overrides</span>
+                <span>Current: {currentTime.toFixed(1)}s</span>
+              </div>
+
+              {/* Add Keyframe Input */}
+              <form onSubmit={handleAddKeyframe} className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={newKeyframePrompt}
+                  onChange={(e) => setNewKeyframePrompt(e.target.value)}
+                  placeholder={`Override at ${currentTime.toFixed(1)}s...`}
+                  className="flex-1 px-2 py-1 rounded-lg bg-[#1a1630] border border-[#2e2a4a] text-white text-[10px] focus:outline-none focus:border-purple-400"
+                />
+                <button
+                  type="submit"
+                  className="px-2 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </form>
+
+              {/* Keyframe List */}
+              {keyframes.length > 0 ? (
+                <div className="max-h-24 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                  {keyframes.map((kf) => (
+                    <div
+                      key={kf.id}
+                      className="flex items-center justify-between gap-1 p-1 rounded bg-[#1a172e] border border-white/5 text-[10px]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => seekToKeyframe(kf.timestamp)}
+                        className="text-purple-300 hover:text-purple-200 font-bold cursor-pointer shrink-0"
+                      >
+                        ⏱️ {kf.timestamp.toFixed(1)}s:
+                      </button>
+                      <span className="truncate text-white/70 flex-1 px-1">
+                        {kf.promptOverride}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeKeyframe(kf.id)}
+                        className="text-rose-400 hover:text-rose-300 p-0.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-[10px] text-white/40 block text-center py-1 italic">
+                  No keyframes set. Type prompt above to add override at {currentTime.toFixed(1)}s.
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* ------------------------------------------------------------------- */}
+          {/* PRIMARY ACTION BUTTONS: REMIX + CREATOR REPLACE / ADJUST / REVERT   */}
+          {/* ------------------------------------------------------------------- */}
+          <div className="space-y-1.5 pt-1">
+            {/* Upload & Replace Button (Creator Mode in Live Preview Only) */}
+            {showCreatorButtons && (
+              <button
+                type="button"
+                onClick={() => onOpenReplaceModal(video)}
+                className={`w-full py-2 px-3 rounded-xl border text-xs font-bold mono flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 ${
+                  isReplaced
+                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-400/40 shadow-amber-950/20'
+                    : 'bg-[#181528] hover:bg-purple-900/30 text-white/90 hover:text-white border-[#2e2a4a] hover:border-amber-400/50'
+                }`}
+                title="Upload and replace this video"
+              >
+                <Upload className="w-3.5 h-3.5 text-amber-400" />
+                <span>Upload & Replace Video</span>
+                {isReplaced && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse ml-0.5" />
+                )}
+              </button>
+            )}
+
+            {/* Adjust Framing Button (For Replaced Videos) */}
+            {isReplaced && showCreatorButtons && (
+              <button
+                type="button"
+                onClick={() => onOpenReplaceModal(video)}
+                className="w-full py-1.5 px-3 rounded-xl bg-[#161327] hover:bg-amber-500/20 border border-amber-400/30 hover:border-amber-400 text-amber-300 text-[11px] font-bold mono flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                title="Adjust video framing: move up and down, left and right by move/drag"
+              >
+                <Move className="w-3.5 h-3.5 text-amber-400" />
+                <span>Adjust Framing ({video.objectPositionX ?? 50}% X, {video.objectPositionY ?? 50}% Y)</span>
+              </button>
+            )}
+
+            {/* Action Row: Remix Video (Populates Studio) + Revert (if replaced) */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleRemix}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-white text-xs font-extrabold mono flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
+                  isHovered
+                    ? 'bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 shadow-xl shadow-fuchsia-500/50 ring-2 ring-fuchsia-400/80 scale-[1.02] animate-pulse text-white'
+                    : 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-lg shadow-purple-950/40'
+                }`}
+                title="Remix: auto-fill prompt, engine, duration, and color grade into Studio"
+              >
+                <Sparkles className={`w-3.5 h-3.5 fill-white ${isHovered ? 'animate-spin' : ''}`} />
+                <span>{isHovered ? '✨ Remix This Prompt (1-Click)' : 'Remix Video'}</span>
+              </button>
+
+              {isReplaced && showCreatorButtons && (
+                <button
+                  type="button"
+                  onClick={() => onRevertToOriginal(video.id, video.title)}
+                  className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all cursor-pointer"
+                  title="Revert video to default slot"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+};
+
 export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
   onRemixVideo,
   onOpenStudioWithMode,
   currentUserEmail,
+  isFreeUser = false,
+  onOpenPlans,
+  user = null,
 }) => {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(true);
-  const [activeFormatTab, setActiveFormatTab] = useState<'all' | '9:16' | '16:9' | '1:1'>('all');
+  const [activeFormatTab, setActiveFormatTab] = useState<'bento' | 'all' | '9:16' | '16:9' | '1:1'>('bento');
+  const [studioModalVideo, setStudioModalVideo] = useState<VideoSample | null>(null);
 
   // Detect whether the current viewer is the creator in live preview
   const isLivePreview = checkIsLivePreviewCreator(currentUserEmail);
@@ -365,6 +1616,26 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
   const videos916 = getProcessedVideos(SAMPLE_VIDEOS_9_16);
   const videos169 = getProcessedVideos(SLOTS_16_9);
   const videos11 = getProcessedVideos(SLOTS_1_1);
+
+  // Dynamic Bento Grid Video Sequence (Interleaving wide 16:9 banners with tall 9:16 and square 1:1)
+  const bentoVideos = [
+    videos169[0], // Wide 16:9 (2 cols)
+    videos916[0], // Tall 9:16
+    videos916[1], // Tall 9:16
+    videos11[0],  // Square 1:1
+    videos11[1],  // Square 1:1
+    videos169[1], // Wide 16:9 (2 cols)
+    videos916[2], // Tall 9:16
+    videos916[3], // Tall 9:16
+    videos169[2], // Wide 16:9 (2 cols)
+    videos11[2],  // Square 1:1
+    videos916[4], // Tall 9:16
+    videos169[3], // Wide 16:9 (2 cols)
+    videos11[3],  // Square 1:1
+    videos916[5], // Tall 9:16
+    videos916[6], // Tall 9:16
+    videos916[7], // Tall 9:16
+  ].filter(Boolean);
 
   // Open replace modal for a specific video
   const handleOpenReplaceModal = (video: VideoSample) => {
@@ -642,255 +1913,59 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
     }
   };
 
-  // Render individual Video Card
+  // Color Grading CSS Filter mapping
+  const COLOR_FILTER_MAP: Record<ColorGradingPreset, string> = {
+    'Normal': 'none',
+    'Film Noir': 'grayscale(100%) contrast(155%) brightness(92%)',
+    'Vibrant': 'saturate(180%) contrast(115%) brightness(104%)',
+    'Vintage': 'sepia(45%) contrast(95%) saturate(85%) hue-rotate(-10deg) brightness(105%)',
+    'Cyberpunk': 'hue-rotate(285deg) saturate(185%) contrast(135%) brightness(105%)',
+    'Cold Sci-Fi': 'hue-rotate(185deg) saturate(130%) contrast(120%) brightness(95%)',
+    'Warm Cinema': 'sepia(25%) saturate(140%) contrast(110%) brightness(102%)',
+  };
+
+  const formatTimecode = (seconds: number) => {
+    if (isNaN(seconds) || seconds < 0) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  const getMotionLabel = (val: number) => {
+    if (val <= 3) return 'Subtle';
+    if (val <= 6) return 'Balanced';
+    if (val <= 8) return 'Cinematic';
+    return 'Hyper';
+  };
+
+  // Render individual Showcase Video Card with full Home Page Preview Panel features & options
   const renderVideoCard = (video: VideoSample & { isCustomReplaced?: boolean; hasVideo?: boolean }) => {
-    const isPlaying = playingVideoId === video.id;
-    const isReplaced = Boolean(video.isCustomReplaced);
-    const safeId = video.id.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const activeVideoSrc = blobUrlMap[video.id] || blobUrlMap[safeId] || video.video_url;
-    const hasVideo = Boolean((video.hasVideo || isReplaced) && activeVideoSrc);
-
-    const ratioClass =
-      video.aspect_ratio === '16:9'
-        ? 'aspect-[16/9]'
-        : video.aspect_ratio === '1:1'
-        ? 'aspect-square'
-        : 'aspect-[9/16]';
-
     return (
-      <div
+      <ShowcaseVideoCard
         key={video.id}
-        className={`group bg-[#121020] border rounded-2xl overflow-hidden shadow-xl transition-all duration-300 flex flex-col justify-between ${
-          isReplaced && showCreatorButtons
-            ? 'border-amber-500/60 ring-1 ring-amber-500/30 shadow-amber-950/20'
-            : hasVideo
-            ? 'border-[#272738] hover:border-purple-500/50'
-            : 'border-dashed border-purple-500/30 hover:border-amber-400/60 bg-[#121020]/70'
-        }`}
-      >
-        {/* Video / Placeholder Container */}
-        <div
-          className={`relative ${ratioClass} bg-black/90 overflow-hidden cursor-pointer flex items-center justify-center`}
-          onClick={() => {
-            if (hasVideo) {
-              setPlayingVideoId(isPlaying ? null : video.id);
-            } else if (showCreatorButtons) {
-              handleOpenReplaceModal(video);
-            }
-          }}
-        >
-          {hasVideo && activeVideoSrc ? (
-            <>
-              <video
-                key={`${video.id}-${activeVideoSrc}`}
-                src={activeVideoSrc}
-                poster={video.thumbnail_url || undefined}
-                loop
-                muted={isMuted}
-                playsInline
-                preload="auto"
-                style={{
-                  objectFit: video.objectFit || 'cover',
-                  objectPosition: `${video.objectPositionX ?? 50}% ${video.objectPositionY ?? 50}%`,
-                  transform: video.zoomScale && video.zoomScale !== 1 ? `scale(${video.zoomScale})` : undefined,
-                  transformOrigin: `${video.objectPositionX ?? 50}% ${video.objectPositionY ?? 50}%`,
-                }}
-                className="w-full h-full group-hover:scale-105 transition-transform duration-500"
-                ref={(el) => {
-                  videoRefs.current[video.id] = el;
-                  if (el) {
-                    if (isPlaying) {
-                      el.play().catch(() => {});
-                    } else {
-                      el.pause();
-                    }
-                  }
-                }}
-                onError={(e) => {
-                  const videoElement = e.target as HTMLVideoElement;
-                  const fallbackUrl = '/videos/festival-dance-9-16.mp4';
-                  
-                  // If we aren't already using the fallback, try it
-                  if (videoElement.src !== fallbackUrl) {
-                    console.warn('Gallery video error, attempting fallback:', videoElement.src);
-                    videoElement.src = fallbackUrl;
-                  } else {
-                    // Fallback failed, hide
-                    console.error('Gallery video fallback failed, hiding element.');
-                    videoElement.style.display = 'none';
-                  }
-                }}
-              />
-
-              {/* Play / Pause Toggle Button Overlay */}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors pointer-events-none">
-                <div className="w-11 h-11 rounded-full bg-purple-600/80 hover:bg-purple-600 text-white backdrop-blur-md flex items-center justify-center shadow-lg transition-transform group-hover:scale-110">
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5 fill-white" />
-                  ) : (
-                    <Play className="w-5 h-5 fill-white ml-0.5" />
-                  )}
-                </div>
-              </div>
-            </>
-          ) : (
-            /* Empty Slot State (Ready for creator upload) */
-            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center space-y-2 bg-gradient-to-br from-[#16122c] to-[#0c091a]">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-400/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
-                <Upload className="w-6 h-6 animate-pulse" />
-              </div>
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-white/90 block">
-                  {video.aspect_ratio === '16:9'
-                    ? '16:9 Widescreen Slot'
-                    : video.aspect_ratio === '1:1'
-                    ? '1:1 Square Slot'
-                    : '9:16 Vertical Slot'}
-                </span>
-                <span className="text-[10px] text-amber-300/80 font-mono block">
-                  {showCreatorButtons ? 'Click card or use button below to upload' : 'Showcase Reel'}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Top Overlay Badges */}
-          <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between text-[10px] mono z-10 pointer-events-none">
-            <span className="px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-purple-300 font-bold border border-white/10 uppercase">
-              {video.model === 'luma'
-                ? 'Luma Fast'
-                : video.model === 'kling'
-                ? 'Kling Pro'
-                : video.model === 'veo' || video.model === 'veo3'
-                ? 'Veo Ultra'
-                : video.model === 'wan'
-                ? 'Wan 2.1 Pro'
-                : video.model === 'hunyuan'
-                ? 'Hunyuan 13B'
-                : video.model === 'ltx'
-                ? 'LTX Realtime'
-                : video.model}
-            </span>
-            <div className="flex items-center gap-1.5">
-              {isReplaced && showCreatorButtons && (
-                <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black font-black text-[9px] uppercase tracking-wider shadow">
-                  Replaced
-                </span>
-              )}
-              <span className="px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-white/90 font-bold border border-white/10">
-                {video.aspect_ratio}
-              </span>
-            </div>
-          </div>
-
-          {/* Mute/Unmute Toggle in top-right when playing */}
-          {hasVideo && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMuted(!isMuted);
-              }}
-              className="absolute bottom-2.5 left-2.5 z-20 p-1.5 rounded-lg bg-black/70 hover:bg-black text-white/80 hover:text-white border border-white/10 backdrop-blur-md text-xs transition-all cursor-pointer opacity-70 group-hover:opacity-100"
-              title={isMuted ? 'Unmute video' : 'Mute video'}
-            >
-              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-            </button>
-          )}
-        </div>
-
-        {/* Card Meta Info & Action Buttons */}
-        <div className="p-3.5 space-y-2.5 bg-[#0e0c1a] border-t border-[#1d1a30]">
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-1">
-              <h4 className="font-bold text-white text-xs sm:text-sm line-clamp-1 group-hover:text-purple-300 transition-colors">
-                {video.title}
-              </h4>
-              {isReplaced && showCreatorButtons && (
-                <span className="shrink-0 text-[10px] font-bold text-amber-400 mono">
-                  [Custom Video]
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-white/60 line-clamp-2 italic font-serif">
-              "{video.prompt}"
-            </p>
-          </div>
-
-          {/* Card Actions: Upload & Replace Video (ONLY in Live Preview Creator Mode) + Remix + Share */}
-          <div className="space-y-1.5 pt-1 border-t border-[#1a172c]">
-            {/* Each Video Button: Upload & Replace Video (ONLY shown to creator in live preview) */}
-            {showCreatorButtons && (
-              <button
-                type="button"
-                onClick={() => handleOpenReplaceModal(video)}
-                className={`w-full py-2 px-3 rounded-xl border text-xs font-bold mono flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-95 ${
-                  isReplaced
-                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-400/40 shadow-amber-950/20'
-                    : 'bg-[#181528] hover:bg-purple-900/30 text-white/90 hover:text-white border-[#2e2a4a] hover:border-amber-400/50'
-                }`}
-                title="Upload and replace this video"
-              >
-                <Upload className="w-3.5 h-3.5 text-amber-400" />
-                <span>Upload & Replace Video</span>
-                {isReplaced && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse ml-0.5" />
-                )}
-              </button>
-            )}
-
-            {/* Adjust Fit & Framing (Move/Drag Up/Down, Left/Right) for Replaced Videos */}
-            {isReplaced && showCreatorButtons && (
-              <button
-                type="button"
-                onClick={() => handleOpenReplaceModal(video)}
-                className="w-full py-1.5 px-3 rounded-xl bg-[#161327] hover:bg-amber-500/20 border border-amber-400/30 hover:border-amber-400 text-amber-300 text-[11px] font-bold mono flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-                title="Adjust video framing: move up and down, left and right by move/drag"
-              >
-                <Move className="w-3.5 h-3.5 text-amber-400" />
-                <span>Adjust Framing ({video.objectPositionX ?? 50}% X, {video.objectPositionY ?? 50}% Y)</span>
-              </button>
-            )}
-
-            {/* Remix Prompt & Social Share Action Row */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onRemixVideo(video)}
-                className="flex-1 py-1.5 px-3 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-400/60 text-purple-200 text-xs font-bold mono flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>Remix</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleShareVideo(video)}
-                className="p-2 rounded-xl bg-[#181528] hover:bg-[#201c36] border border-[#2e2a4a] text-white/70 hover:text-white transition-all cursor-pointer"
-                title="Share video"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-              </button>
-
-              {isReplaced && showCreatorButtons && (
-                <button
-                  type="button"
-                  onClick={() => handleRevertToOriginal(video.id, video.title)}
-                  className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 transition-all cursor-pointer"
-                  title="Revert video to default"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+        video={video}
+        activeVideoSrc={blobUrlMap[video.id] || blobUrlMap[video.id.replace(/[^a-zA-Z0-9_-]/g, '_')] || video.video_url}
+        isPlaying={playingVideoId === video.id}
+        onTogglePlay={() => setPlayingVideoId(playingVideoId === video.id ? null : video.id)}
+        showCreatorButtons={showCreatorButtons}
+        onOpenReplaceModal={handleOpenReplaceModal}
+        onRevertToOriginal={handleRevertToOriginal}
+        onRemixVideo={onRemixVideo}
+        onOpenStudioModal={(v) => setStudioModalVideo(v)}
+        onShareVideo={handleShareVideo}
+        setGalleryNotice={setGalleryNotice}
+        isFreeUser={isFreeUser}
+        onOpenPlans={onOpenPlans}
+        currentUserEmail={currentUserEmail}
+        COLOR_FILTER_MAP={COLOR_FILTER_MAP}
+        formatTimecode={formatTimecode}
+        getMotionLabel={getMotionLabel}
+      />
     );
   };
 
   return (
-    <section className="space-y-8 pt-6 pb-6">
+    <section id="showcase-gallery" className="space-y-8 pt-6 pb-6 scroll-mt-24">
       {/* Section Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-purple-500/20 pb-4">
         <div className="space-y-1.5">
@@ -964,8 +2039,20 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
         </div>
       )}
 
-      {/* Aspect Ratio Filter Tabs */}
+      {/* Aspect Ratio & Layout Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 text-xs mono">
+        <button
+          type="button"
+          onClick={() => setActiveFormatTab('bento')}
+          className={`px-3.5 py-1.5 rounded-xl font-extrabold transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
+            activeFormatTab === 'bento'
+              ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white border-fuchsia-400 shadow-md ring-1 ring-fuchsia-400/50'
+              : 'bg-[#121020] text-purple-300/80 border-[#272738] hover:text-white hover:border-purple-500/40'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
+          <span>🍱 Dynamic Bento Grid (Magazine)</span>
+        </button>
         <button
           type="button"
           onClick={() => setActiveFormatTab('all')}
@@ -975,7 +2062,7 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
               : 'bg-[#121020] text-white/60 border-[#272738] hover:text-white'
           }`}
         >
-          All Formats (9:16, 16:9, 1:1)
+          All Formats by Section
         </button>
         <button
           type="button"
@@ -1014,6 +2101,47 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
           <span>1:1 Square (4 Slots)</span>
         </button>
       </div>
+
+      {/* ========================================================================= */}
+      {/* 2. DYNAMIC BENTO / FLUID MASONRY SHOWCASE GRID (Suggestion 2)             */}
+      {/* Interleave tall 9:16 reels with wide 16:9 cinematic landscape banners     */}
+      {/* ========================================================================= */}
+      {activeFormatTab === 'bento' && (
+        <div className="space-y-4 animate-in fade-in duration-300">
+          <div className="flex items-center justify-between border-b border-purple-500/15 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white">
+                <Sparkles className="w-4 h-4 fill-white" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2 flex-wrap">
+                  <span>Dynamic Bento Showcase</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 font-mono font-bold">
+                    Magazine Layout • 16:9 + 9:16 + 1:1
+                  </span>
+                </h3>
+                <p className="text-[11px] text-white/50">
+                  Fluid editorial layout interleaving cinematic widescreen banners with mobile vertical reels and ambient back-glow.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 items-start">
+            {bentoVideos.map((video, idx) => {
+              const isWide = video.aspect_ratio === '16:9';
+              return (
+                <div
+                  key={`bento-card-${video.id}-${idx}`}
+                  className={isWide ? 'sm:col-span-2' : ''}
+                >
+                  {renderVideoCard(video)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* ROW 1: 9:16 VERTICAL REELS                                                */}
@@ -1546,6 +2674,60 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: FULL STUDIO PLAYER VIEW (Expands any showcase video into QualityLockPlayer) */}
+      {/* ========================================================================= */}
+      {studioModalVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-xl animate-in fade-in overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-[#0f0d1b] border border-purple-500/40 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4 my-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-purple-500/20 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-purple-600/30 text-purple-300 border border-purple-400/40 text-[10px] font-bold mono uppercase">
+                  Studio Player View • {studioModalVideo.aspect_ratio}
+                </span>
+                <h3 className="text-sm sm:text-base font-bold text-white line-clamp-1">
+                  {studioModalVideo.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStudioModalVideo(null)}
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all cursor-pointer"
+                title="Close Studio View"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quality-Locked Player with complete Home Page Preview features */}
+            <QualityLockPlayer
+              videoUrl={
+                blobUrlMap[studioModalVideo.id] ||
+                blobUrlMap[studioModalVideo.id.replace(/[^a-zA-Z0-9_-]/g, '_')] ||
+                studioModalVideo.video_url
+              }
+              aspectRatio={studioModalVideo.aspect_ratio}
+              title={studioModalVideo.title}
+              modelName={studioModalVideo.model.toUpperCase()}
+              duration={studioModalVideo.duration}
+              timestamp={studioModalVideo.created_at}
+              prompt={studioModalVideo.prompt}
+              isFreeUser={isFreeUser}
+              user={user}
+              onOpenPlans={onOpenPlans}
+              onRemix={(config) => {
+                setStudioModalVideo(null);
+                onRemixVideo({
+                  ...studioModalVideo,
+                  ...config,
+                });
+              }}
+            />
           </div>
         </div>
       )}

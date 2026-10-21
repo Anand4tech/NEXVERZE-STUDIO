@@ -21,12 +21,35 @@
         "updated_at": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "video_url", "updated_at"]
+    },
+    "user_favorite": {
+      "title": "User Favorite",
+      "description": "Represents a favorited video creation saved by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "videoId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "title": { "type": "string" },
+        "prompt": { "type": "string" },
+        "model": { "type": "string" },
+        "aspect_ratio": { "type": "string" },
+        "video_url": { "type": "string" },
+        "thumbnail_url": { "type": "string" },
+        "duration": { "type": "string" },
+        "favorited_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "videoId", "title", "video_url", "favorited_at"]
     }
   },
   "firestore": {
     "/gallery_replacements/{replacementId}": {
       "schema": "gallery_replacement",
       "description": "Collection of gallery video replacements."
+    },
+    "/user_favorites/{favoriteId}": {
+      "schema": "user_favorite",
+      "description": "Collection of user favorited video creations."
     }
   }
 }

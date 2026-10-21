@@ -164,3 +164,35 @@
 .animate-player-generating {
   animation: playerGlowPulse 2.2s ease-in-out infinite;
 }
+
+/* Heart burst and float animation for Showcase Gallery cards */
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.35) rotate(-6deg); }
+  50% { transform: scale(0.92) rotate(3deg); }
+  75% { transform: scale(1.18); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes heartFloatUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.8);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(-24px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-44px) scale(0.6);
+  }
+}
+
+.animate-heart-pop {
+  animation: heartPop 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-float-heart {
+  animation: heartFloatUp 1.1s ease-out forwards;
+}

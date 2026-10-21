@@ -49,6 +49,7 @@ import { PrivacyPolicyPage } from './components/pages/PrivacyPolicyPage';
 import { TermsPage } from './components/pages/TermsPage';
 import { RefundPolicyPage } from './components/pages/RefundPolicyPage';
 import { ContactSupportPage } from './components/pages/ContactSupportPage';
+import { FavoritesPage } from './components/pages/FavoritesPage';
 import {
   Sparkles,
   Zap,
@@ -82,7 +83,7 @@ import {
   Shuffle,
 } from 'lucide-react';
 
-export type ActiveViewType = 'studio' | 'studioApp' | 'history' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact';
+export type ActiveViewType = 'studio' | 'studioApp' | 'history' | 'favorites' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact';
 
 export default function App() {
   const [user, setUser] = useState<StudioUser | null>(null);
@@ -94,6 +95,7 @@ export default function App() {
       if (p === '/refund-policy' || p === '/refund-and-cancellation' || p === '/refund') return 'refund';
       if (p === '/contact' || p === '/contact-support') return 'contact';
       if (p === '/history' || p === '/studio/history') return 'history';
+      if (p === '/favorites' || p === '/favourites' || p === '/liked') return 'favorites';
       if (p === '/sql') return 'sql';
       if (p === '/studio') return 'studioApp';
     }
@@ -109,6 +111,7 @@ export default function App() {
     else if (view === 'refund') path = '/refund-policy/';
     else if (view === 'contact') path = '/contact/';
     else if (view === 'history') path = '/history';
+    else if (view === 'favorites') path = '/favorites';
     else if (view === 'sql') path = '/sql';
     else if (view === 'studioApp') path = '/studio';
     else path = '/';
@@ -481,8 +484,11 @@ export default function App() {
     sceneTransition?: SceneTransitionType;
     colorGrading?: ColorGradingPreset;
   }) => {
-    // 0. Ensure studio workspace is opened and navigated to
-    if (activeView !== 'studioApp') {
+    // 0. Frictionless "1-Tap Remix" (Suggestion 5):
+    // If user is on the landing page, keep them on the landing page without navigating away!
+    // The prompt parameters float directly up into the Hero Floating Command Center.
+    const isHomePage = activeView === 'studio';
+    if (!isHomePage && activeView !== 'studioApp') {
       setActiveView('studioApp');
       if (typeof window !== 'undefined' && window.location.pathname !== '/studio') {
         window.history.pushState({ view: 'studioApp' }, '', '/studio');
@@ -540,19 +546,22 @@ export default function App() {
       setColorGrading(config.colorGrading);
     }
 
-    // 6. Smooth scroll to prompt textarea and highlight it
+    // 6. Smooth scroll to prompt command bar on homepage or textarea in studio
     setTimeout(() => {
-      const textarea = document.getElementById('studio-prompt-textarea');
-      if (textarea) {
-        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        textarea.focus();
+      const targetElem = isHomePage
+        ? document.getElementById('floating-command-bar')
+        : (document.getElementById('studio-prompt-textarea') || document.getElementById('floating-command-bar'));
+      if (targetElem) {
+        targetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const inputInside = targetElem.querySelector('textarea, input');
+        (inputInside as HTMLElement)?.focus();
       }
-    }, 150);
+    }, 120);
 
     // 7. Show feedback banner
     setRemixBanner({
       active: true,
-      message: `Cloned into Studio: "${targetPrompt.slice(0, 42)}..." • ${FAL_MODELS[matchedModel].name} (${matchedDur}) • ${targetRatio || '16:9'}`,
+      message: `✨ Cloned into Command Center: "${targetPrompt.slice(0, 42)}..." • ${FAL_MODELS[matchedModel].name} (${matchedDur}) • ${targetRatio || '9:16'}`,
     });
     setTimeout(() => {
       setRemixBanner({ active: false, message: '' });
@@ -1973,6 +1982,12 @@ export default function App() {
           onRemixVideo={handleRemixVideo}
           onOpenStudioWithMode={handleOpenStudioWithMode}
           currentUserEmail={user?.email}
+          isFreeUser={isFreeUser}
+          onOpenPlans={() => {
+            setInsufficientCreditTrigger(false);
+            setIsCreditModalOpen(true);
+          }}
+          user={user}
         />
 
         {/* HELP & FAQ SECTION AT THE BOTTOM OF STUDIO PAGE */}
@@ -1998,6 +2013,33 @@ export default function App() {
               setSelectedRatio(r);
               setActiveView('studio');
             }}
+            onNavigateToGallery={() => {
+              setActiveView('studio');
+              setTimeout(() => {
+                document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
+              }, 120);
+            }}
+          />
+        )}
+
+        {/* 2.5 DEDICATED FAVORITES PAGE */}
+        {activeView === 'favorites' && (
+          <FavoritesPage
+            userEmail={user?.email}
+            onSelectPrompt={(p, m, r) => {
+              setPrompt(p);
+              setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
+              setSelectedRatio(r);
+              navigateToView('studio');
+            }}
+            onNavigateToHome={() => {
+              navigateToView('studio');
+              setTimeout(() => {
+                document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
+              }, 120);
+            }}
+            onNavigateToStudio={() => navigateToView('studio')}
+            onOpenSqlTab={() => navigateToView('sql')}
           />
         )}
 

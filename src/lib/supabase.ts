@@ -260,6 +260,136 @@ export async function fetchUserGenerations(email?: string): Promise<StudioGenera
   return [];
 }
 
+export interface FavoriteVideo {
+  id?: string;
+  user_id?: string;
+  email: string;
+  video_id: string;
+  title: string;
+  prompt: string;
+  model: string;
+  aspect_ratio: string;
+  video_url: string;
+  thumbnail_url?: string;
+  duration?: string;
+  created_at?: string;
+}
+
+const LOCAL_FAVORITES_KEY = 'nexverze_favorite_creations_v1';
+const FAVORITES_EVENT = 'nexverze-favorites-updated';
+
+export function getLocalFavoriteVideos(): FavoriteVideo[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_FAVORITES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLocalFavoriteVideos(items: FavoriteVideo[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LOCAL_FAVORITES_KEY, JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent(FAVORITES_EVENT, { detail: items }));
+  } catch (err) {
+    console.warn('Local favorite storage error:', err);
+  }
+}
+
+export async function fetchSupabaseFavorites(email?: string): Promise<FavoriteVideo[]> {
+  const supabase = getSupabaseClient();
+  const cleanEmail = email ? email.trim().toLowerCase() : 'guest@nexverze.ai';
+
+  try {
+    let query = supabase
+      .from('favorite_videos')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (email && email !== 'anand4earn@gmail.com') {
+      query = query.eq('email', cleanEmail);
+    }
+
+    const { data, error } = await query;
+    if (data && !error && data.length > 0) {
+      const list = data as FavoriteVideo[];
+      saveLocalFavoriteVideos(list);
+      return list;
+    }
+  } catch (err) {
+    console.warn('Supabase fetch favorites notice (using local cache):', err);
+  }
+
+  // Fallback to local cache
+  const localList = getLocalFavoriteVideos();
+  return localList;
+}
+
+export async function toggleSupabaseFavorite(item: Omit<FavoriteVideo, 'id' | 'created_at'>): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  const cleanEmail = item.email ? item.email.trim().toLowerCase() : 'guest@nexverze.ai';
+  const localList = getLocalFavoriteVideos();
+  const existsIndex = localList.findIndex(
+    (f) => (f.video_id === item.video_id || (f as any).id === item.video_id)
+  );
+
+  let isLiked = false;
+
+  if (existsIndex >= 0) {
+    // REMOVE / UNLIKE
+    const updated = localList.filter((_, idx) => idx !== existsIndex);
+    saveLocalFavoriteVideos(updated);
+    isLiked = false;
+
+    try {
+      await supabase
+        .from('favorite_videos')
+        .delete()
+        .eq('video_id', item.video_id);
+    } catch (e) {
+      console.warn('Supabase delete favorite notice (handled offline):', e);
+    }
+  } else {
+    // ADD / LIKE
+    const newRecord: FavoriteVideo = {
+      ...item,
+      email: cleanEmail,
+      created_at: new Date().toISOString(),
+    };
+    const updated = [newRecord, ...localList];
+    saveLocalFavoriteVideos(updated);
+    isLiked = true;
+
+    try {
+      await supabase
+        .from('favorite_videos')
+        .insert([newRecord]);
+    } catch (e) {
+      console.warn('Supabase insert favorite notice (handled offline):', e);
+    }
+  }
+
+  return isLiked;
+}
+
+export async function deleteSupabaseFavorite(videoId: string, email?: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const localList = getLocalFavoriteVideos();
+  const updated = localList.filter((f) => f.video_id !== videoId && (f as any).id !== videoId);
+  saveLocalFavoriteVideos(updated);
+
+  try {
+    await supabase
+      .from('favorite_videos')
+      .delete()
+      .eq('video_id', videoId);
+  } catch (e) {
+    console.warn('Supabase delete favorite error:', e);
+  }
+}
+
 export const SUPABASE_STUDIO_SQL = `-- Run in Supabase SQL Editor:
 CREATE TABLE IF NOT EXISTS studio_users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -294,9 +424,27 @@ CREATE TABLE IF NOT EXISTS credit_transactions (
   created_at timestamptz DEFAULT now()
 );
 
+-- New Table: favorite_videos for Liked Showcase & Studio creations
+CREATE TABLE IF NOT EXISTS favorite_videos (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid,
+  email text NOT NULL,
+  video_id text NOT NULL,
+  title text NOT NULL,
+  prompt text NOT NULL,
+  model text NOT NULL,
+  aspect_ratio text DEFAULT '9:16',
+  video_url text NOT NULL,
+  thumbnail_url text,
+  duration text DEFAULT '10s',
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(email, video_id)
+);
+
 ALTER TABLE studio_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE studio_generations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE favorite_videos ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow anon read/write studio_users" ON studio_users
   FOR ALL USING (true) WITH CHECK (true);
@@ -305,5 +453,8 @@ CREATE POLICY "Allow anon read/write studio_generations" ON studio_generations
   FOR ALL USING (true) WITH CHECK (true);
 
 CREATE POLICY "Allow anon read/write credit_transactions" ON credit_transactions
+  FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow anon read/write favorite_videos" ON favorite_videos
   FOR ALL USING (true) WITH CHECK (true);
 `;
