@@ -47,8 +47,13 @@ interface HeroSectionProps {
   onRemixVideo?: (config?: {
     prompt?: string;
     modelName?: string;
+    model?: string;
     duration?: string;
     aspectRatio?: '9:16' | '16:9' | '1:1';
+    aspect_ratio?: '9:16' | '16:9' | '1:1';
+    motionIntensity?: number;
+    sceneTransition?: any;
+    colorGrading?: any;
   }) => void;
   currentUserEmail?: string | null;
 }

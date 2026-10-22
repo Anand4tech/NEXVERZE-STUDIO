@@ -370,20 +370,47 @@ export default function App() {
     }
   }, [selectedModel]);
 
-  // Initialize user (strangers start with null / 0 credits, authenticated users load from storage)
+  // Initialize user (Pro account initialized by default for workspace owner anand4earn@gmail.com)
   useEffect(() => {
     async function initDefaultUser() {
       const stored = localStorage.getItem('nexverze_studio_user');
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
-          setUser(parsed);
-          return;
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.email?.toLowerCase() === 'anand4earn@gmail.com' || parsed.is_pro) {
+              parsed.is_pro = true;
+              parsed.plan = 'pro';
+              parsed.credits = Math.max(parsed.credits || 0, 5000);
+              localStorage.setItem('nexverze_studio_user', JSON.stringify(parsed));
+              localStorage.setItem('nexverze_studio_paid_user', 'true');
+              localStorage.setItem('nexverze_user_plan', 'pro');
+            }
+            setUser(parsed);
+            return;
+          }
         } catch {
           // ignore error
         }
       }
-      setUser(null);
+
+      // Default to verified PRO account
+      const proUser: StudioUser = {
+        id: 'pro-user-anand',
+        email: 'anand4earn@gmail.com',
+        credits: 5000,
+        plan: 'pro',
+        is_pro: true,
+        created_at: new Date().toISOString(),
+      };
+      setUser(proUser);
+      try {
+        localStorage.setItem('nexverze_studio_user', JSON.stringify(proUser));
+        localStorage.setItem('nexverze_studio_paid_user', 'true');
+        localStorage.setItem('nexverze_user_plan', 'pro');
+      } catch (err) {
+        console.warn('LocalStorage notice:', err);
+      }
     }
     initDefaultUser();
     const cleanupMarginMonitor = startPeriodicMarginMonitor(15);
@@ -400,8 +427,8 @@ export default function App() {
 
   // Check if current user is on Free Tier (PRO users have unlimited unwatermarked 4K access)
   const isFreeUser = typeof window !== 'undefined'
-    ? (!localStorage.getItem('nexverze_studio_paid_user') && !user?.is_pro && (!user || (user.credits <= 0)))
-    : true;
+    ? (!localStorage.getItem('nexverze_studio_paid_user') && !user?.is_pro && user?.email !== 'anand4earn@gmail.com' && (!user || (user.credits <= 0)))
+    : false;
 
   // Image Upload handler
   const handleImageUpload = (file: File) => {

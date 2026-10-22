@@ -69,7 +69,7 @@ export const FloatingCommandBar: React.FC<FloatingCommandBarProps> = ({
   const [activePopover, setActivePopover] = useState<'model' | 'ratio' | 'duration' | 'motion' | null>(null);
   const [localEnhancing, setLocalEnhancing] = useState(false);
   const [enhanceSuccess, setEnhanceSuccess] = useState(false);
-  const [activeCameraPreset, setActiveCameraPreset] = useState<string>('Dynamic Motion');
+  const [activeCameraPreset, setActiveCameraPreset] = useState<string>('Pan Right');
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -179,9 +179,9 @@ export const FloatingCommandBar: React.FC<FloatingCommandBarProps> = ({
                   : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/10'
               }`}
             >
-              <Film className="w-3.5 h-3.5 text-purple-400" />
+              <span>🎬</span>
               <span>{modelInfo.name}</span>
-              <ChevronDown className="w-3 h-3 text-white/50" />
+              <span className="text-[10px] text-white/50">▾</span>
             </button>
 
             {/* Model Dropdown Popover */}
@@ -210,6 +210,7 @@ export const FloatingCommandBar: React.FC<FloatingCommandBarProps> = ({
                       <div className="flex flex-col">
                         <span className="font-bold flex items-center gap-1.5">
                           {m.name}
+                          {mKey === 'kling' && <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300">Kling 1.5</span>}
                           {mKey === 'luma' && <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300">Fastest</span>}
                           {mKey === 'veo' && <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300">Veo 3.1</span>}
                         </span>
@@ -234,15 +235,9 @@ export const FloatingCommandBar: React.FC<FloatingCommandBarProps> = ({
                   : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/10'
               }`}
             >
-              {selectedRatio === '9:16' ? (
-                <Smartphone className="w-3.5 h-3.5 text-purple-400" />
-              ) : selectedRatio === '16:9' ? (
-                <Tv className="w-3.5 h-3.5 text-pink-400" />
-              ) : (
-                <Square className="w-3.5 h-3.5 text-indigo-400" />
-              )}
-              <span>{selectedRatio}</span>
-              <ChevronDown className="w-3 h-3 text-white/50" />
+              <span>📐</span>
+              <span>{selectedRatio === '9:16' ? '9:16 Vertical' : selectedRatio === '16:9' ? '16:9 Cinema' : '1:1 Square'}</span>
+              <span className="text-[10px] text-white/50">▾</span>
             </button>
 
             {/* Ratio Dropdown Popover */}
@@ -295,9 +290,9 @@ export const FloatingCommandBar: React.FC<FloatingCommandBarProps> = ({
                   : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/10'
               }`}
             >
-              <Clock className="w-3.5 h-3.5 text-amber-400" />
+              <span>⏱️</span>
               <span>{selectedDuration}</span>
-              <ChevronDown className="w-3 h-3 text-white/50" />
+              <span className="text-[10px] text-white/50">▾</span>
             </button>
 
             {/* Duration Dropdown Popover */}
@@ -345,9 +340,9 @@ export const FloatingCommandBar: React.FC<FloatingCommandBarProps> = ({
                   : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/10'
               }`}
             >
-              <Camera className="w-3.5 h-3.5 text-cyan-400" />
+              <span>🎥</span>
               <span>{activeCameraPreset}</span>
-              <ChevronDown className="w-3 h-3 text-white/50" />
+              <span className="text-[10px] text-white/50">▾</span>
             </button>
 
             {/* Motion Popover */}

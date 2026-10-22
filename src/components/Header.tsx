@@ -298,7 +298,9 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <span>{user.email.split('@')[0]}</span>
                 {(user.is_pro || user.email === 'anand4earn@gmail.com') && (
-                  <span className="bg-black/30 text-[9px] px-1 rounded ml-0.5">PRO</span>
+                  <span className="bg-black/50 text-amber-300 font-black text-[9px] px-1.5 py-0.5 rounded-full border border-amber-400/40 ml-1 flex items-center gap-0.5 shadow-sm">
+                    ⚡ PRO
+                  </span>
                 )}
               </div>
               <button

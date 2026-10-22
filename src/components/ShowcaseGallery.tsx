@@ -608,7 +608,7 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
     <div className="relative group/card w-full">
       {/* Ambient Video Glow (The "Apple TV / YouTube Cinema" Effect - Suggestion 3) */}
       <div
-        className={`absolute -inset-2.5 sm:-inset-3 rounded-3xl blur-2xl transition-all duration-500 pointer-events-none -z-10 ${
+        className={`absolute -inset-3 sm:-inset-4 rounded-3xl blur-3xl transition-all duration-700 pointer-events-none -z-10 ${
           video.dominantGlow === 'cyan'
             ? 'bg-gradient-to-r from-cyan-500/35 via-blue-500/25 to-teal-500/35'
             : video.dominantGlow === 'amber'
@@ -622,8 +622,8 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
             : 'bg-gradient-to-r from-purple-600/40 via-fuchsia-600/30 to-pink-600/40'
         } ${
           isHovered || isPlaying
-            ? 'opacity-85 scale-[1.02] animate-pulse'
-            : 'opacity-0 scale-95'
+            ? 'opacity-85 scale-[1.03] animate-pulse'
+            : 'opacity-25 scale-100'
         }`}
       />
 
