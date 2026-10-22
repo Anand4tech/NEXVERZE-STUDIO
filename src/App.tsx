@@ -219,9 +219,23 @@ export default function App() {
   const [isStudioExpanded, setIsStudioExpanded] = useState<boolean>(true);
   const [activeStudioTab, setActiveStudioTab] = useState<'text' | 'image' | 'mobile-to-cinematic' | 'watermark'>('text');
 
-  const handleOpenStudioWithMode = (mode: 'text' | 'image' | 'mobile-to-cinematic' | 'watermark') => {
+  const handleOpenStudioWithMode = (
+    mode: 'text' | 'image' | 'mobile-to-cinematic' | 'watermark',
+    initialPrompt?: string,
+    model?: ModelType | string,
+    ratio?: '9:16' | '16:9' | '1:1'
+  ) => {
     setActiveStudioTab(mode);
-    navigateToStudioApp();
+    if (initialPrompt) {
+      setPrompt(initialPrompt);
+    }
+    if (model && (model in FAL_MODELS)) {
+      setSelectedModel(model as ModelType);
+    }
+    if (ratio) {
+      setSelectedRatio(ratio);
+    }
+    navigateToStudioApp(initialPrompt, (model && model in FAL_MODELS) ? (model as ModelType) : undefined);
   };
 
   // Recent Prompts Drawer State (saves last 5 successful prompts)
@@ -370,47 +384,20 @@ export default function App() {
     }
   }, [selectedModel]);
 
-  // Initialize user (Pro account initialized by default for workspace owner anand4earn@gmail.com)
+  // Initialize user (strangers start with null / 0 credits, authenticated users load from storage)
   useEffect(() => {
     async function initDefaultUser() {
       const stored = localStorage.getItem('nexverze_studio_user');
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
-          if (parsed && typeof parsed === 'object') {
-            if (parsed.email?.toLowerCase() === 'anand4earn@gmail.com' || parsed.is_pro) {
-              parsed.is_pro = true;
-              parsed.plan = 'pro';
-              parsed.credits = Math.max(parsed.credits || 0, 5000);
-              localStorage.setItem('nexverze_studio_user', JSON.stringify(parsed));
-              localStorage.setItem('nexverze_studio_paid_user', 'true');
-              localStorage.setItem('nexverze_user_plan', 'pro');
-            }
-            setUser(parsed);
-            return;
-          }
+          setUser(parsed);
+          return;
         } catch {
           // ignore error
         }
       }
-
-      // Default to verified PRO account
-      const proUser: StudioUser = {
-        id: 'pro-user-anand',
-        email: 'anand4earn@gmail.com',
-        credits: 5000,
-        plan: 'pro',
-        is_pro: true,
-        created_at: new Date().toISOString(),
-      };
-      setUser(proUser);
-      try {
-        localStorage.setItem('nexverze_studio_user', JSON.stringify(proUser));
-        localStorage.setItem('nexverze_studio_paid_user', 'true');
-        localStorage.setItem('nexverze_user_plan', 'pro');
-      } catch (err) {
-        console.warn('LocalStorage notice:', err);
-      }
+      setUser(null);
     }
     initDefaultUser();
     const cleanupMarginMonitor = startPeriodicMarginMonitor(15);
@@ -427,8 +414,8 @@ export default function App() {
 
   // Check if current user is on Free Tier (PRO users have unlimited unwatermarked 4K access)
   const isFreeUser = typeof window !== 'undefined'
-    ? (!localStorage.getItem('nexverze_studio_paid_user') && !user?.is_pro && user?.email !== 'anand4earn@gmail.com' && (!user || (user.credits <= 0)))
-    : false;
+    ? (!localStorage.getItem('nexverze_studio_paid_user') && !user?.is_pro && (!user || (user.credits <= 0)))
+    : true;
 
   // Image Upload handler
   const handleImageUpload = (file: File) => {
@@ -511,11 +498,8 @@ export default function App() {
     sceneTransition?: SceneTransitionType;
     colorGrading?: ColorGradingPreset;
   }) => {
-    // 0. Frictionless "1-Tap Remix" (Suggestion 5):
-    // If user is on the landing page, keep them on the landing page without navigating away!
-    // The prompt parameters float directly up into the Hero Floating Command Center.
-    const isHomePage = activeView === 'studio';
-    if (!isHomePage && activeView !== 'studioApp') {
+    // 0. Ensure studio workspace is opened and navigated to
+    if (activeView !== 'studioApp') {
       setActiveView('studioApp');
       if (typeof window !== 'undefined' && window.location.pathname !== '/studio') {
         window.history.pushState({ view: 'studioApp' }, '', '/studio');
@@ -573,22 +557,19 @@ export default function App() {
       setColorGrading(config.colorGrading);
     }
 
-    // 6. Smooth scroll to prompt command bar on homepage or textarea in studio
+    // 6. Smooth scroll to prompt textarea and highlight it
     setTimeout(() => {
-      const targetElem = isHomePage
-        ? document.getElementById('floating-command-bar')
-        : (document.getElementById('studio-prompt-textarea') || document.getElementById('floating-command-bar'));
-      if (targetElem) {
-        targetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const inputInside = targetElem.querySelector('textarea, input');
-        (inputInside as HTMLElement)?.focus();
+      const textarea = document.getElementById('studio-prompt-textarea');
+      if (textarea) {
+        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        textarea.focus();
       }
-    }, 120);
+    }, 150);
 
     // 7. Show feedback banner
     setRemixBanner({
       active: true,
-      message: `✨ Cloned into Command Center: "${targetPrompt.slice(0, 42)}..." • ${FAL_MODELS[matchedModel].name} (${matchedDur}) • ${targetRatio || '9:16'}`,
+      message: `Cloned into Studio: "${targetPrompt.slice(0, 42)}..." • ${FAL_MODELS[matchedModel].name} (${matchedDur}) • ${targetRatio || '16:9'}`,
     });
     setTimeout(() => {
       setRemixBanner({ active: false, message: '' });

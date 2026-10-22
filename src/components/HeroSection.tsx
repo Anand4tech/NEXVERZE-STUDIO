@@ -20,7 +20,6 @@ import {
   Pause,
   Eye,
   EyeOff,
-  RefreshCw,
   Film,
   Move,
   ArrowLeft,
@@ -29,8 +28,6 @@ import {
   Crop,
   Maximize2,
   Save,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react';
 import {
   storeGalleryVideoBlob,
@@ -38,22 +35,21 @@ import {
   deleteGalleryVideoBlob,
 } from '../lib/galleryStorage';
 import { checkIsLivePreviewCreator } from './ShowcaseGallery';
-import { FloatingCommandBar } from './FloatingCommandBar';
-import { ModelType, DurationType } from '../lib/modelConfig';
+import { enhancePrompt } from '../lib/promptEnhancer';
 
 interface HeroSectionProps {
-  onOpenStudioWithMode: (mode: 'text' | 'image' | 'mobile-to-cinematic') => void;
+  onOpenStudioWithMode: (
+    mode: 'text' | 'image' | 'mobile-to-cinematic',
+    initialPrompt?: string,
+    model?: string,
+    ratio?: '9:16' | '16:9' | '1:1'
+  ) => void;
   isStudioOpen: boolean;
   onRemixVideo?: (config?: {
     prompt?: string;
     modelName?: string;
-    model?: string;
     duration?: string;
     aspectRatio?: '9:16' | '16:9' | '1:1';
-    aspect_ratio?: '9:16' | '16:9' | '1:1';
-    motionIntensity?: number;
-    sceneTransition?: any;
-    colorGrading?: any;
   }) => void;
   currentUserEmail?: string | null;
 }
@@ -82,60 +78,43 @@ const DEFAULT_HOME_PREVIEW: HomePreviewConfig = {
   isCustom: false,
 };
 
-// Extract 3 key frames from video file for Gemini Vision multimodal analysis
-const extractKeyFramesFromVideo = (file: File): Promise<string[]> => {
-  return new Promise((resolve) => {
-    try {
-      const url = URL.createObjectURL(file);
-      const video = document.createElement('video');
-      video.src = url;
-      video.muted = true;
-      video.playsInline = true;
-
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      const captureFrame = (time: number): Promise<string> => {
-        return new Promise((res) => {
-          video.currentTime = time;
-          video.onseeked = () => {
-            try {
-              canvas.width = Math.min(video.videoWidth || 640, 640);
-              canvas.height = Math.round((canvas.width * (video.videoHeight || 360)) / (video.videoWidth || 640));
-              if (ctx) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                res(canvas.toDataURL('image/jpeg', 0.8));
-                return;
-              }
-            } catch {}
-            res('');
-          };
-        });
-      };
-
-      video.onloadeddata = async () => {
-        const dur = video.duration || 3;
-        const f1 = await captureFrame(Math.max(0.1, dur * 0.15));
-        const f2 = await captureFrame(dur * 0.5);
-        const f3 = await captureFrame(Math.min(dur - 0.1, dur * 0.85));
-        URL.revokeObjectURL(url);
-        resolve([f1, f2, f3].filter(Boolean));
-      };
-
-      video.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve([]);
-      };
-
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-        resolve([]);
-      }, 5000);
-    } catch {
-      resolve([]);
-    }
-  });
-};
+const LUMA_VIRAL_PROMPT_SUGGESTIONS = [
+  {
+    icon: '🌧️',
+    label: 'Cyberpunk Neon Rain',
+    prompt: 'Cinematic 8k vertical portrait of a cyberpunk wanderer in reflective neon rain, Tokyo alleyway, glowing techwear, volumetric bokeh lights',
+    model: 'luma' as const,
+    ratio: '9:16' as const,
+  },
+  {
+    icon: '🛕',
+    label: 'Ancient Temple Drone',
+    prompt: 'FPV drone flythrough of ancient South Indian temple gopuram towers at golden hour sunset, 8k volumetric light, photorealistic architectural hyper-detail',
+    model: 'luma' as const,
+    ratio: '9:16' as const,
+  },
+  {
+    icon: '👰',
+    label: 'Royal Indian Wedding',
+    prompt: 'Cinematic 4K slow motion bride entry under floral canopy, velvet lehenga with real gold zardozi embroidery, fireworks bokeh, 60fps',
+    model: 'kling' as const,
+    ratio: '9:16' as const,
+  },
+  {
+    icon: '🏜️',
+    label: 'Desert Safari Drift',
+    prompt: 'Epic high-speed rally 4x4 drifting across golden desert sand dunes at twilight, dust plumes illuminated by red taillights, cinematic IMAX 70mm',
+    model: 'veo' as const,
+    ratio: '16:9' as const,
+  },
+  {
+    icon: '🏎️',
+    label: 'Monaco Night Hypercar',
+    prompt: 'Ultra-photorealistic glossy carbon fiber hypercar accelerating through Monaco tunnels, neon streaks, motion blur, 4K raytraced reflections',
+    model: 'kling' as const,
+    ratio: '16:9' as const,
+  },
+];
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   onOpenStudioWithMode,
@@ -167,7 +146,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     return DEFAULT_HOME_PREVIEW;
   });
 
-  // Audio on/off state - Default audio is OFF (muted)
+  // Audio on/off state - Default audio is OFF (muted for browser policy compliance)
   const [isAudioOff, setIsAudioOff] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
@@ -190,48 +169,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     }
   }, [isAutoLoop]);
 
-  // Floating Command Center Prompt Bar States (Runway & Midjourney Style)
-  const [commandPrompt, setCommandPrompt] = useState<string>(
-    'Cinematic vertical portrait of a beautiful young woman standing in a neon-lit futuristic cyberpunk city under gentle rain, translucent drops glistening on skin, high-tech glowing techwear collar, cinematic shallow depth of field, photorealistic 8k, volumetric bokeh lights'
-  );
-  const [commandModel, setCommandModel] = useState<ModelType>('luma');
-  const [commandRatio, setCommandRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
-  const [commandDuration, setCommandDuration] = useState<DurationType>('5s');
-  const [commandMotion, setCommandMotion] = useState<number>(6);
-  const [remixHighlight, setRemixHighlight] = useState<boolean>(false);
-  const [remixPillNotice, setRemixPillNotice] = useState<string | null>(null);
-
-  // Catch remix actions from any card in the showcase gallery
-  useEffect(() => {
-    const handleRemixEvent = (e: any) => {
-      const detail = e.detail;
-      if (detail) {
-        if (detail.prompt) setCommandPrompt(detail.prompt);
-        if (detail.modelName) {
-          const m = detail.modelName.toLowerCase();
-          if (m.includes('kling')) setCommandModel('kling');
-          else if (m.includes('veo')) setCommandModel('veo');
-          else if (m.includes('wan')) setCommandModel('wan');
-          else if (m.includes('hunyuan')) setCommandModel('hunyuan');
-          else if (m.includes('ltx')) setCommandModel('ltx');
-          else setCommandModel('luma');
-        }
-        if (detail.duration) setCommandDuration(detail.duration);
-        if (detail.aspectRatio) setCommandRatio(detail.aspectRatio);
-        if (detail.motionIntensity) setCommandMotion(detail.motionIntensity);
-        setRemixHighlight(true);
-        setRemixPillNotice(`⚡ Remixed Prompt Loaded (${detail.aspectRatio || '9:16'})`);
-        setTimeout(() => {
-          setRemixHighlight(false);
-          setRemixPillNotice(null);
-        }, 4000);
-      }
-    };
-    window.addEventListener('nexverze-remix-action', handleRemixEvent);
-    return () => window.removeEventListener('nexverze-remix-action', handleRemixEvent);
-  }, []);
-
-
   // Creator Mode (Show to Me) toggle - ONLY available if isLivePreview is true
   const [isCreatorMode, setIsCreatorMode] = useState<boolean>(() => {
     if (!checkIsLivePreviewCreator(currentUserEmail)) return false;
@@ -243,7 +180,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         console.error(e);
       }
     }
-    return false; // Default to FALSE: Regular users ONLY see the video and Audio On/Off
+    return false; // Default to FALSE: Regular users see a clean, distraction-free cinematic presentation
   });
 
   const toggleCreatorMode = () => {
@@ -256,7 +193,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     showToast(
       next
         ? '👑 Creator Controls Enabled (Show to Me: ON)'
-        : '👁️ User View Enabled: Only Audio On/Off is shown to users'
+        : '👁️ User View Enabled: Clean cinematic presentation'
     );
   };
 
@@ -275,6 +212,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     }
     return DEFAULT_HOME_PREVIEW.videoUrl;
   });
+
+  // Luma Prompt Command Bar states
+  const [commandPrompt, setCommandPrompt] = useState<string>('');
+  const [commandModel, setCommandModel] = useState<'luma' | 'kling' | 'veo'>('luma');
+  const [commandRatio, setCommandRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState<boolean>(false);
 
   // Modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -657,11 +600,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         modelName: 'luma',
       });
     } else {
-      onOpenStudioWithMode('text');
+      onOpenStudioWithMode('text', previewConfig.prompt, 'luma', previewConfig.aspectRatio);
     }
   };
 
-  // Save changes from Edit Modal (decide 9:16, 16:9, 1:1, object-fit, title, prompt, and save the video)
+  // Save changes from Edit Modal
   const handleSaveEditChanges = (e: React.FormEvent) => {
     e.preventDefault();
     const updated: HomePreviewConfig = {
@@ -710,91 +653,32 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     showToast('🔄 Reverted to default showcase video');
   };
 
-  // Determine container aspect ratio sizing
-  const getContainerRatioStyle = () => {
-    switch (previewConfig.aspectRatio) {
-      case '16:9':
-        return 'w-full aspect-[16/9] max-h-[440px]';
-      case '1:1':
-        return 'w-full max-w-[420px] aspect-square mx-auto';
-      case '9:16':
-      default:
-        return 'w-full max-w-[340px] sm:max-w-[360px] aspect-[9/16] mx-auto';
+  // Luma Command Bar Execute Handler
+  const handleExecuteCommandPrompt = (customPrompt?: string) => {
+    const textToRun = (customPrompt ?? commandPrompt).trim();
+    if (!textToRun) {
+      onOpenStudioWithMode('text', previewConfig.prompt, commandModel, commandRatio);
+      return;
     }
+    onOpenStudioWithMode('text', textToRun, commandModel, commandRatio);
+  };
+
+  // Magic prompt enhancer for Luma Command Bar
+  const handleEnhanceCommandPrompt = () => {
+    setIsEnhancingPrompt(true);
+    setTimeout(() => {
+      const base = commandPrompt || previewConfig.prompt;
+      const enhanced = enhancePrompt(base, { model: commandModel });
+      setCommandPrompt(enhanced);
+      setIsEnhancingPrompt(false);
+      showToast('✨ Prompt enhanced with cinematic camera & lighting!');
+    }, 350);
   };
 
   return (
-    <section className="relative pt-6 pb-8 space-y-8 max-w-7xl mx-auto">
-      {/* Background ambient lighting */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-80 bg-gradient-to-r from-purple-600/20 via-fuchsia-600/20 to-pink-600/20 blur-3xl rounded-full pointer-events-none" />
-
-      {/* Main Headline & Big CTA Buttons */}
-      <div className="relative z-10 text-center space-y-5 max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-500/15 via-fuchsia-500/15 to-pink-500/15 border border-purple-400/30 text-purple-200 text-xs font-bold mono uppercase tracking-wider shadow-lg">
-          <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300 animate-pulse" />
-          <span>Next-Gen Photorealistic AI Video Studio</span>
-        </div>
-
-        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-tight">
-          Turn Any Prompt & Photo Into <br className="hidden sm:inline" />
-          <span className="bg-gradient-to-r from-purple-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent font-black">
-            Cinematic 4K AI Videos
-          </span>
-        </h1>
-
-        <p className="text-sm sm:text-base md:text-lg text-purple-100/80 max-w-2xl mx-auto font-medium">
-          Create viral Instagram Reels & Shorts in seconds. Powered by Luma Fast, Kling Pro & Veo Ultra with 10 Indian Languages & AI Voiceover synthesis.
-        </p>
-
-        {/* Big CTA Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2">
-          <button
-            type="button"
-            onClick={() => onOpenStudioWithMode('text')}
-            className="w-full sm:w-auto font-extrabold py-4 px-7 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-purple-400/40"
-          >
-            <Wand2 className="w-5 h-5 text-amber-300" />
-            <span>✨ Text to Video</span>
-            <ArrowRight className="w-4 h-4 text-white/80" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onOpenStudioWithMode('image')}
-            className="w-full sm:w-auto font-extrabold py-4 px-7 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-purple-400/40"
-          >
-            <ImageIcon className="w-5 h-5 text-cyan-300" />
-            <span>🖼️ Image to Video</span>
-            <ArrowRight className="w-4 h-4 text-white/80" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onOpenStudioWithMode('mobile-to-cinematic')}
-            className="w-full sm:w-auto font-extrabold py-4 px-7 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-600 hover:from-amber-300 hover:to-pink-500 text-black shadow-xl shadow-amber-600/30 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-amber-300/60"
-          >
-            <Sparkles className="w-5 h-5 text-black" />
-            <span>🎥 Mobile to Cinematic</span>
-            <ArrowRight className="w-4 h-4 text-black/80" />
-          </button>
-        </div>
-
-        {/* Feature Check Badges */}
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 pt-2 text-xs mono text-white/70">
-          <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>⚡ Instant ₹99 Trial Pack (150cr)</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>10 Major Indian Languages</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>4K Quality Lock Engine</span>
-          </span>
-        </div>
-      </div>
+    <section className="relative pt-1 pb-8 space-y-6 max-w-7xl mx-auto">
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4/5 h-80 bg-gradient-to-r from-purple-600/20 via-fuchsia-600/20 to-pink-600/20 blur-3xl rounded-full pointer-events-none" />
 
       {/* Global Toast Notice */}
       {toastNotice && (
@@ -805,228 +689,162 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* 1. THE "FLOATING COMMAND CENTER" PROMPT BAR (Runway & Midjourney Style)    */}
+      {/* INTEGRATED RUNWAY & LUMA STYLE CINEMATIC HERO THEATER STAGE               */}
+      {/* Auto-looping video canvas + Dual-layer cinematic gradient scrims +        */}
+      {/* Overlay content stack + Floating Top HUD with Audio ON/OFF Toggle        */}
       {/* ========================================================================= */}
-      <div className="max-w-4xl mx-auto px-1 sm:px-2">
-        <FloatingCommandBar
-          prompt={commandPrompt}
-          onPromptChange={setCommandPrompt}
-          selectedModel={commandModel}
-          onModelChange={setCommandModel}
-          selectedRatio={commandRatio}
-          onRatioChange={setCommandRatio}
-          selectedDuration={commandDuration}
-          onDurationChange={setCommandDuration}
-          motionIntensity={commandMotion}
-          onMotionIntensityChange={setCommandMotion}
-          highlightRemix={remixHighlight}
-          remixNotice={remixPillNotice}
-          onClearPrompt={() => setCommandPrompt('')}
-          onGenerate={() => {
-            if (onRemixVideo) {
-              onRemixVideo({
-                prompt: commandPrompt,
-                modelName: commandModel,
-                duration: commandDuration,
-                aspectRatio: commandRatio,
-                motionIntensity: commandMotion,
-              });
-            } else {
-              onOpenStudioWithMode('text');
-            }
-          }}
-        />
-      </div>
-
-      {/* ========================================================================= */}
-      {/* HOME PAGE PREVIEW PANEL (Title hidden from users; shows video only)       */}
-      {/* Features: auto play video, audio on/off (default off), upload & replace,  */}
-      {/* remix, button 9:16, 16:9, 1:1, edit button (decide ratio & save video)    */}
-      {/* Enhanced with Ambient Video Glow (Apple TV / YouTube Cinema Effect)        */}
-      {/* ========================================================================= */}
-      <div className="relative max-w-3xl mx-auto group">
-        {/* Ambient Video Glow (The Apple TV / YouTube Cinema Effect) */}
-        <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-r from-purple-600/35 via-fuchsia-600/30 to-pink-600/35 rounded-3xl blur-3xl opacity-50 group-hover:opacity-90 transition-all duration-700 pointer-events-none -z-10 animate-pulse" />
-
-        <div className="relative rounded-3xl overflow-hidden border border-purple-500/30 bg-[#0c0a1a] shadow-[0_0_50px_rgba(168,85,247,0.22)] p-3 sm:p-5 space-y-4">
-          {/* Video Viewport Container */}
-          <div
-            onPointerDown={isCreatorMode ? handleFramingPointerDown : undefined}
-            onPointerMove={isCreatorMode ? handleFramingPointerMove : undefined}
-            onPointerUp={isCreatorMode ? handleFramingPointerUp : undefined}
-            onPointerCancel={isCreatorMode ? handleFramingPointerUp : undefined}
-          className={`relative w-full flex items-center justify-center overflow-hidden rounded-2xl bg-black/80 select-none touch-none transition-all ${
+      <div className="relative w-full rounded-3xl sm:rounded-[2.5rem] overflow-hidden border border-purple-500/35 bg-[#070514] shadow-[0_0_80px_rgba(168,85,247,0.22)] ring-1 ring-purple-500/20 transition-all flex flex-col justify-between min-h-[580px] sm:min-h-[640px] lg:min-h-[700px]">
+        
+        {/* ========================================================================= */}
+        {/* 1. AUTO-LOOPING BACKGROUND VIDEO CANVAS (Runway & Luma Style)             */}
+        {/* ========================================================================= */}
+        <div
+          onPointerDown={isCreatorMode ? handleFramingPointerDown : undefined}
+          onPointerMove={isCreatorMode ? handleFramingPointerMove : undefined}
+          onPointerUp={isCreatorMode ? handleFramingPointerUp : undefined}
+          onPointerCancel={isCreatorMode ? handleFramingPointerUp : undefined}
+          className={`absolute inset-0 w-full h-full overflow-hidden select-none touch-none ${
             isCreatorMode
               ? isDraggingFraming
-                ? 'cursor-grabbing ring-2 ring-amber-400 scale-[1.002]'
-                : 'cursor-grab hover:ring-1 hover:ring-amber-400/50'
+                ? 'cursor-grabbing ring-2 ring-amber-400'
+                : 'cursor-grab ring-1 ring-amber-400/50'
               : ''
           }`}
         >
-          <div
-            className={`relative rounded-2xl overflow-hidden bg-black transition-all duration-300 shadow-2xl ${getContainerRatioStyle()}`}
-          >
-            {/* Auto Play Video */}
-            <video
-              ref={videoRef}
-              key={liveVideoSrc}
-              src={liveVideoSrc}
-              autoPlay
-              loop={isAutoLoop}
-              muted={isAudioOff}
-              playsInline
-              preload="auto"
-              style={{
-                objectFit: isCreatorMode ? uploadFit : (previewConfig.objectFit || 'cover'),
-                objectPosition: isCreatorMode
-                  ? `${uploadPosX}% ${uploadPosY}%`
-                  : `${previewConfig.objectPositionX ?? 50}% ${previewConfig.objectPositionY ?? 50}%`,
-                transform: (isCreatorMode ? uploadZoom : previewConfig.zoomScale) && (isCreatorMode ? uploadZoom : previewConfig.zoomScale) !== 1
+          <video
+            ref={videoRef}
+            key={liveVideoSrc}
+            src={liveVideoSrc}
+            autoPlay
+            loop={isAutoLoop}
+            muted={isAudioOff}
+            playsInline
+            preload="auto"
+            style={{
+              objectFit: isCreatorMode ? uploadFit : (previewConfig.objectFit || 'cover'),
+              objectPosition: isCreatorMode
+                ? `${uploadPosX}% ${uploadPosY}%`
+                : `${previewConfig.objectPositionX ?? 50}% ${previewConfig.objectPositionY ?? 50}%`,
+              transform:
+                (isCreatorMode ? uploadZoom : previewConfig.zoomScale) &&
+                (isCreatorMode ? uploadZoom : previewConfig.zoomScale) !== 1
                   ? `scale(${isCreatorMode ? uploadZoom : previewConfig.zoomScale})`
                   : undefined,
-                transformOrigin: isCreatorMode
-                  ? `${uploadPosX}% ${uploadPosY}%`
-                  : `${previewConfig.objectPositionX ?? 50}% ${previewConfig.objectPositionY ?? 50}%`,
-                userSelect: 'none',
-              }}
-              className="w-full h-full pointer-events-none transition-transform duration-75"
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onError={(e) => {
-                console.warn('Hero preview video failed, reverting to default reference:', liveVideoSrc);
-                const target = e.target as HTMLVideoElement;
-                if (liveVideoSrc !== DEFAULT_HOME_PREVIEW.videoUrl) {
-                  setLiveVideoSrc(DEFAULT_HOME_PREVIEW.videoUrl);
-                  setPreviewConfig((prev) => ({
-                    ...prev,
-                    videoUrl: DEFAULT_HOME_PREVIEW.videoUrl,
-                  }));
-                } else if (target && target.src !== '/videos/festival-dance-9-16.mp4') {
-                  target.src = '/videos/festival-dance-9-16.mp4';
-                }
-              }}
-            >
-              <source src={liveVideoSrc} type="video/mp4" />
-              <source src={DEFAULT_HOME_PREVIEW.videoUrl} type="video/mp4" />
-              <source src="/videos/sample-1.mp4" type="video/mp4" />
-            </video>
+              transformOrigin: isCreatorMode
+                ? `${uploadPosX}% ${uploadPosY}%`
+                : `${previewConfig.objectPositionX ?? 50}% ${previewConfig.objectPositionY ?? 50}%`,
+              userSelect: 'none',
+            }}
+            className="w-full h-full pointer-events-none transition-transform duration-75"
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onError={(e) => {
+              console.warn('Hero preview video failed, reverting to default reference:', liveVideoSrc);
+              const target = e.target as HTMLVideoElement;
+              if (liveVideoSrc !== DEFAULT_HOME_PREVIEW.videoUrl) {
+                setLiveVideoSrc(DEFAULT_HOME_PREVIEW.videoUrl);
+                setPreviewConfig((prev) => ({
+                  ...prev,
+                  videoUrl: DEFAULT_HOME_PREVIEW.videoUrl,
+                }));
+              } else if (target && target.src !== '/videos/festival-dance-9-16.mp4') {
+                target.src = '/videos/festival-dance-9-16.mp4';
+              }
+            }}
+          >
+            <source src={liveVideoSrc} type="video/mp4" />
+            <source src={DEFAULT_HOME_PREVIEW.videoUrl} type="video/mp4" />
+            <source src="/videos/festival-dance-16-9.mp4" type="video/mp4" />
+            <source src="/videos/sample-1.mp4" type="video/mp4" />
+          </video>
 
-            {/* Tap to Play/Pause indicator on hover (ONLY when NOT in Creator Mode) */}
-            {!isCreatorMode && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (videoRef.current) {
-                    if (videoRef.current.paused) {
-                      videoRef.current.play()
-                        .then(() => setIsPlaying(true))
-                        .catch(() => setIsPlaying(false));
-                    } else {
-                      videoRef.current.pause();
-                      setIsPlaying(false);
-                    }
-                  }
-                }}
-                className="absolute inset-0 flex items-center justify-center bg-black/10 hover:bg-black/20 transition-all opacity-0 hover:opacity-100 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center shadow-xl">
-                  {isPlaying ? <Pause className="w-5 h-5 fill-white" /> : <Play className="w-5 h-5 fill-white ml-0.5" />}
-                </div>
-              </button>
-            )}
+          {/* DUAL-LAYER CINEMATIC GRADIENT SCRIMS */}
+          {/* Layer 1: Linear vertical gradient scrim (darkening top & bottom for high text contrast) */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#070514]/85 via-[#070514]/40 to-[#070514]/95 pointer-events-none" />
 
-            {/* CREATOR MODE ONLY: Floating Drag Movement Indicator & Direct Save Badge */}
-            {isCreatorMode && (
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-none gap-2">
-                <span className="px-3 py-1 rounded-full bg-black/85 backdrop-blur-md text-amber-300 text-[10px] font-bold mono border border-amber-400/50 flex items-center gap-1.5 shadow-lg">
-                  <Move className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                  <span>Drag: ↕ Up/Down • ↔ Left/Right ({uploadPosX}%, {uploadPosY}%)</span>
-                </span>
+          {/* Layer 2: Radial focal vignette (maintains vivid center motion while vignette-darkening edges) */}
+          <div className="absolute inset-0 [background:radial-gradient(ellipse_at_center,rgba(7,5,20,0.12)_0%,rgba(7,5,20,0.65)_70%,rgba(7,5,20,0.96)_100%)] pointer-events-none" />
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSavePositionDirectly();
-                  }}
-                  className="pointer-events-auto px-3 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-black text-[10px] mono border border-emerald-300 shadow-lg flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                  title="Save video movement position"
-                >
-                  <Save className="w-3 h-3 text-black" />
-                  <span>Save Movement</span>
-                </button>
-              </div>
-            )}
-
-            {/* Top Overlay Badges: Audio Toggle & (Only in Creator Mode: Aspect Ratio) */}
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-none">
-              {/* Aspect Ratio Badge: ONLY shown to creator, NOT shown to users */}
-              {isCreatorMode ? (
-                <span className="px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md text-amber-300 text-[10px] font-bold mono border border-amber-400/30 uppercase flex items-center gap-1">
-                  <Move className="w-3 h-3 text-amber-400" />
-                  <span>{previewConfig.aspectRatio} (Creator Drag Enabled)</span>
-                </span>
-              ) : (
-                <div />
-              )}
-
-              {/* Audio on/off toggle badge on video (Default Audio is OFF) */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleAudio();
-                }}
-                className="pointer-events-auto px-2.5 py-1 rounded-full bg-black/75 hover:bg-black text-white text-[10px] font-bold mono border border-white/10 backdrop-blur-md flex items-center gap-1.5 transition-all cursor-pointer shadow-lg"
-                title={isAudioOff ? 'Click to turn audio ON' : 'Click to turn audio OFF'}
-              >
-                {isAudioOff ? (
-                  <>
-                    <VolumeX className="w-3.5 h-3.5 text-rose-400" />
-                    <span className="text-white/80">Audio: OFF</span>
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-300">Audio: ON</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+          {/* Ambient top light sheen */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-72 bg-gradient-to-r from-purple-600/30 via-fuchsia-600/25 to-pink-600/30 blur-3xl rounded-full pointer-events-none" />
         </div>
 
+        {/* Tap to Play/Pause indicator on video hover (ONLY when NOT in Creator Mode) */}
+        {!isCreatorMode && (
+          <button
+            type="button"
+            onClick={() => {
+              if (videoRef.current) {
+                if (videoRef.current.paused) {
+                  videoRef.current
+                    .play()
+                    .then(() => setIsPlaying(true))
+                    .catch(() => setIsPlaying(false));
+                } else {
+                  videoRef.current.pause();
+                  setIsPlaying(false);
+                }
+              }
+            }}
+            className="absolute inset-0 z-10 flex items-center justify-center bg-black/0 hover:bg-black/20 transition-all opacity-0 hover:opacity-100 cursor-pointer pointer-events-auto"
+            title={isPlaying ? 'Click background to pause playback' : 'Click background to resume playback'}
+          >
+            <div className="w-16 h-16 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white flex items-center justify-center shadow-2xl">
+              {isPlaying ? (
+                <Pause className="w-6 h-6 fill-white" />
+              ) : (
+                <Play className="w-6 h-6 fill-white ml-1" />
+              )}
+            </div>
+          </button>
+        )}
+
         {/* ========================================================================= */}
-        {/* CONTROL BAR:                                                              */}
-        {/* FOR REGULAR USERS: ONLY Audio On/Off (Default Audio is OFF) is shown.    */}
-        {/* DO NOT show to users: Aspect Ratio buttons, Upload & Replace, Remix, Edit */}
-        {/* FOR CREATOR ('me'): Available when Creator Mode is toggled                */}
+        {/* FLOATING TOP HUD & AUDIO TOGGLE                                           */}
+        {/* Translucent glass Audio: OFF / Audio: ON pinned at top-right              */}
         {/* ========================================================================= */}
-        {!isCreatorMode ? (
-          /* ========================================================================= */
-          /* 1. PUBLIC USER VIEW: ONLY Audio On/Off (Default Audio is OFF)            */
-          /* ========================================================================= */
-          <div className="flex items-center justify-between pt-1 border-t border-[#1f1a3a]">
-            {/* Audio On/Off (Default: OFF) - ONLY feature shown to users */}
+        <div className="relative z-30 flex items-center justify-between p-4 sm:p-6 pointer-events-none">
+          {/* Top Left Status Badge */}
+          <div className="pointer-events-auto flex items-center gap-2">
+            {isCreatorMode ? (
+              <span className="px-3.5 py-1.5 rounded-full bg-black/85 backdrop-blur-md text-amber-300 text-xs font-bold mono border border-amber-400/50 flex items-center gap-2 shadow-xl">
+                <Move className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <span>
+                  Framing: {uploadPosX}% X • {uploadPosY}% Y ({previewConfig.aspectRatio})
+                </span>
+              </span>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-white/90 text-xs font-bold mono shadow-xl">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+                <span>4K Master Theater • 60 FPS</span>
+              </div>
+            )}
+          </div>
+
+          {/* Top Right: Audio Toggle & Creator Switch */}
+          <div className="pointer-events-auto flex items-center gap-2">
+            {/* Translucent glass Audio: OFF / Audio: ON button */}
             <button
               type="button"
-              onClick={toggleAudio}
-              className={`px-4 py-2 rounded-xl border text-xs font-bold mono flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95 ${
-                isAudioOff
-                  ? 'bg-[#141026] border-[#2b2548] text-white/80 hover:text-white hover:border-purple-500/40'
-                  : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-emerald-950/40'
-              }`}
-              title="Toggle audio sound (default is off)"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleAudio();
+              }}
+              className="px-4 py-1.5 rounded-full bg-black/75 hover:bg-black text-white text-xs font-bold mono border border-white/20 backdrop-blur-md flex items-center gap-2 transition-all cursor-pointer shadow-xl hover:scale-105 active:scale-95 ring-1 ring-white/10"
+              title={isAudioOff ? 'Click to turn audio ON' : 'Click to turn audio OFF'}
             >
               {isAudioOff ? (
                 <>
-                  <VolumeX className="w-4 h-4 text-rose-400" />
-                  <span>Audio: OFF</span>
+                  <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="text-white/85">Audio: OFF</span>
                 </>
               ) : (
                 <>
-                  <Volume2 className="w-4 h-4 text-emerald-400" />
-                  <span>Audio: ON</span>
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                  <span className="text-emerald-300">Audio: ON</span>
                 </>
               )}
             </button>
@@ -1035,37 +853,120 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             {isLivePreview && (
               <button
                 type="button"
-                onClick={toggleCreatorMode}
-                className="text-[10px] mono text-white/20 hover:text-amber-400/80 px-2 py-1 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
-                title="Toggle Creator Controls (Show to Me)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCreatorMode();
+                }}
+                className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer shadow-xl border ${
+                  isCreatorMode
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 hover:bg-amber-500/30'
+                    : 'bg-black/60 text-white/50 border-white/10 hover:text-amber-300 hover:border-amber-400/30'
+                }`}
+                title={isCreatorMode ? 'Switch to Clean User View' : '👑 Open Creator Controls'}
               >
-                <EyeOff className="w-3 h-3" />
-                <span className="hidden sm:inline">Creator</span>
+                {isCreatorMode ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
-        ) : (
-          /* ========================================================================= */
-          /* 2. CREATOR VIEW (SHOW TO ME): Creator Controls Toolbar                    */
-          /* ========================================================================= */
-          <div className="space-y-3 pt-1 border-t border-[#1f1a3a]">
-            <div className="flex items-center justify-between text-[11px] mono text-amber-300/80 bg-amber-500/10 px-3 py-1 rounded-xl border border-amber-400/20">
+        </div>
+
+        {/* ========================================================================= */}
+        {/* OVERLAY CONTENT STACK (All Requested Details Directly Over Video)         */}
+        {/* ========================================================================= */}
+        <div className="relative z-20 flex flex-col items-center justify-center text-center px-4 sm:px-8 pt-4 sm:pt-8 pb-14 sm:pb-16 max-w-4xl mx-auto space-y-6 pointer-events-auto">
+          
+          {/* Kicker Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-950/75 border border-purple-400/40 text-purple-200 text-xs font-bold mono uppercase tracking-wider backdrop-blur-md shadow-2xl shadow-purple-950/50">
+            <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300 animate-pulse" />
+            <span>✨ Next-Gen Photorealistic AI Video Studio</span>
+          </div>
+
+          {/* Main Headline */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-[1.12] drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)]">
+            Turn Any Prompt & Photo Into <br className="hidden sm:inline" />
+            <span className="bg-gradient-to-r from-purple-300 via-fuchsia-300 to-pink-400 bg-clip-text text-transparent font-black filter drop-shadow">
+              Cinematic 4K AI Videos
+            </span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-sm sm:text-base md:text-lg text-purple-100/90 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)]">
+            Create viral Instagram Reels & Shorts in seconds. Powered by Luma Fast, Kling Pro & Veo Ultra with 10 Indian Languages & AI Voiceover synthesis.
+          </p>
+
+          {/* 3 Action CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-1 w-full max-w-xl mx-auto">
+            <button
+              type="button"
+              onClick={() => onOpenStudioWithMode('text')}
+              className="w-full sm:w-auto font-extrabold py-3.5 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-xl shadow-purple-600/40 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-purple-400/50"
+            >
+              <Wand2 className="w-4 h-4 text-amber-300" />
+              <span>✨ Text to Video</span>
+              <ArrowRight className="w-4 h-4 text-white/80" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenStudioWithMode('image')}
+              className="w-full sm:w-auto font-extrabold py-3.5 px-6 rounded-2xl bg-[#140e2b]/85 hover:bg-[#201744] backdrop-blur-md text-white border border-purple-400/40 shadow-xl shadow-purple-950/60 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer hover:border-purple-300 ring-1 ring-white/10"
+            >
+              <ImageIcon className="w-4 h-4 text-cyan-300" />
+              <span>🖼️ Image to Video</span>
+              <ArrowRight className="w-4 h-4 text-white/80" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenStudioWithMode('mobile-to-cinematic')}
+              className="w-full sm:w-auto font-extrabold py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-600 hover:from-amber-300 hover:to-pink-500 text-black shadow-xl shadow-amber-600/35 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-amber-300/60"
+            >
+              <Sparkles className="w-4 h-4 text-black" />
+              <span>🎥 Mobile to Cinematic</span>
+              <ArrowRight className="w-4 h-4 text-black/80" />
+            </button>
+          </div>
+
+          {/* Spec & Trial Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-4 pt-1 text-xs mono text-white/85">
+            <span className="px-3.5 py-1.5 rounded-full bg-black/65 border border-emerald-400/40 backdrop-blur-md flex items-center gap-2 shadow-lg">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>⚡ Instant ₹99 Trial Pack (150cr)</span>
+            </span>
+            <span className="px-3.5 py-1.5 rounded-full bg-black/65 border border-emerald-400/40 backdrop-blur-md flex items-center gap-2 shadow-lg">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>10 Major Indian Languages</span>
+            </span>
+            <span className="px-3.5 py-1.5 rounded-full bg-black/65 border border-emerald-400/40 backdrop-blur-md flex items-center gap-2 shadow-lg">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>4K Quality Lock Engine</span>
+            </span>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* CREATOR MODE ONLY: In-stage Controls & Draggable Framing Toolbar          */}
+        {/* ========================================================================= */}
+        {isCreatorMode && (
+          <div className="relative z-30 p-4 sm:p-5 border-t border-amber-500/30 bg-[#0e0a20]/95 backdrop-blur-xl space-y-3 pointer-events-auto">
+            <div className="flex items-center justify-between text-[11px] mono text-amber-300 bg-amber-500/10 px-3.5 py-1.5 rounded-xl border border-amber-400/30">
               <span className="font-bold flex items-center gap-1.5">
-                👑 Creator Controls (Show to Me)
+                👑 Creator Controls (Show to Me: ON) • Drag video canvas above or nudge below
               </span>
               <button
                 type="button"
                 onClick={toggleCreatorMode}
-                className="text-white/60 hover:text-white underline text-[10px] flex items-center gap-1 cursor-pointer"
+                className="text-white/70 hover:text-white underline text-[10px] flex items-center gap-1 cursor-pointer"
               >
                 <Eye className="w-3 h-3 text-amber-400" />
                 <span>Switch to User View</span>
               </button>
             </div>
 
-            {/* Interactive Video Framing & Movement Toolbar (ONLY shown in Creator Mode) */}
-            <div className="p-2.5 rounded-2xl bg-[#141028] border border-amber-500/30 flex flex-wrap items-center justify-between gap-2 text-xs mono">
-              <div className="flex items-center gap-2">
+            {/* Interactive Framing Nudge & Action Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs mono">
+              {/* Nudge buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-amber-300 font-bold flex items-center gap-1 text-[11px]">
                   <Move className="w-3.5 h-3.5 text-amber-400" />
                   <span>Nudge Position:</span>
@@ -1074,7 +975,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => nudgeFraming('left')}
-                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
                     title="Nudge Left"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
@@ -1082,7 +983,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => nudgeFraming('right')}
-                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
                     title="Nudge Right"
                   >
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -1090,7 +991,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => nudgeFraming('up')}
-                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
                     title="Nudge Up"
                   >
                     <ArrowUp className="w-3.5 h-3.5" />
@@ -1098,7 +999,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => nudgeFraming('down')}
-                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
                     title="Nudge Down"
                   >
                     <ArrowDown className="w-3.5 h-3.5" />
@@ -1107,7 +1008,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 <button
                   type="button"
                   onClick={resetFraming}
-                  className="px-2 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
                   title="Reset position to 50% Center"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -1126,58 +1027,38 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </label>
               </div>
 
-              {/* Save Movement Button */}
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-white/50">
-                  Pos: {uploadPosX}%, {uploadPosY}%
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSavePositionDirectly}
-                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black text-xs font-black mono flex items-center gap-1.5 shadow-md shadow-emerald-950/50 transition-all active:scale-95 cursor-pointer"
-                  title="Save current video position and movement"
-                >
-                  <Save className="w-3.5 h-3.5 text-black" />
-                  <span>Save Movement</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              {/* Format Buttons: 9:16, 16:9, 1:1 */}
-              <div className="flex items-center gap-1.5 bg-[#141026] p-1 rounded-2xl border border-[#2b2548]">
+              {/* Format buttons: 9:16, 16:9, 1:1 */}
+              <div className="flex items-center gap-1 bg-[#141026] p-1 rounded-2xl border border-[#2b2548]">
                 <button
                   type="button"
                   onClick={() => handleSelectAspectRatio('9:16')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer ${
                     previewConfig.aspectRatio === '9:16'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-950/60'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
                   <span>9:16</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => handleSelectAspectRatio('16:9')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer ${
                     previewConfig.aspectRatio === '16:9'
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-purple-950/60'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <Tv className="w-3.5 h-3.5" />
                   <span>16:9</span>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => handleSelectAspectRatio('1:1')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer ${
                     previewConfig.aspectRatio === '1:1'
-                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-md shadow-purple-950/60'
+                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-md'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
@@ -1186,33 +1067,18 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </button>
               </div>
 
-              {/* Action Buttons: Audio On/Off, Upload & Replace, Remix, Edit */}
+              {/* Actions: Save Movement, Upload & Replace, Remix, Edit */}
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Audio On/Off (Default: OFF) */}
                 <button
                   type="button"
-                  onClick={toggleAudio}
-                  className={`px-3 py-2 rounded-xl border text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
-                    isAudioOff
-                      ? 'bg-[#141026] border-[#2b2548] text-white/70 hover:text-white hover:border-purple-500/40'
-                      : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
-                  }`}
-                  title="Toggle audio sound (default is off)"
+                  onClick={handleSavePositionDirectly}
+                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black text-xs font-black mono flex items-center gap-1.5 shadow-md shadow-emerald-950/50 transition-all active:scale-95 cursor-pointer"
+                  title="Save current video framing and position"
                 >
-                  {isAudioOff ? (
-                    <>
-                      <VolumeX className="w-3.5 h-3.5 text-rose-400" />
-                      <span>Audio: Off</span>
-                    </>
-                  ) : (
-                    <>
-                      <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Audio: On</span>
-                    </>
-                  )}
+                  <Save className="w-3.5 h-3.5 text-black" />
+                  <span>Save Movement</span>
                 </button>
 
-                {/* Upload and Replace Video */}
                 <button
                   type="button"
                   onClick={() => {
@@ -1226,29 +1092,27 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     setUploadZoom(previewConfig.zoomScale ?? 1);
                     setIsUploadModalOpen(true);
                   }}
-                  className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-black mono flex items-center gap-1.5 shadow-md shadow-amber-950/40 transition-all active:scale-95 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-black mono flex items-center gap-1.5 shadow-md shadow-amber-950/40 transition-all active:scale-95 cursor-pointer"
                   title="Upload and replace this preview video"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Upload & Replace Video</span>
+                  <span>Upload & Replace</span>
                 </button>
 
-                {/* Remix */}
                 <button
                   type="button"
                   onClick={handleRemix}
-                  className="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
                   title="Remix prompt into Studio"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-purple-400" />
                   <span>Remix</span>
                 </button>
 
-                {/* Edit Button (decide 9:16, 16:9, 1:1 and save video) */}
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}
-                  className="px-3 py-2 rounded-xl bg-[#18142c] hover:bg-purple-900/30 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  className="px-3 py-1.5 rounded-xl bg-[#18142c] hover:bg-purple-900/30 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
                   title="Edit video options: decide 9:16, 16:9, 1:1 and save video"
                 >
                   <Sliders className="w-3.5 h-3.5 text-purple-400" />
@@ -1259,10 +1123,119 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
         )}
       </div>
-    </div>
 
       {/* ========================================================================= */}
-      {/* MODAL 1: UPLOAD & REPLACE VIDEO                                           */}
+      {/* 2. LUMA PROMPT COMMAND BAR (Interactive Floating Bar Docked Below Hero)    */}
+      {/* ========================================================================= */}
+      <div className="relative z-30 -mt-7 sm:-mt-9 max-w-4xl mx-auto px-2 sm:px-0">
+        <div className="relative rounded-3xl bg-[#0f0b24]/95 backdrop-blur-2xl border border-purple-500/40 p-3 sm:p-4 shadow-[0_25px_65px_rgba(0,0,0,0.75)] ring-1 ring-purple-400/30 space-y-3">
+          
+          {/* Main Input Row */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
+            {/* Text Input */}
+            <div className="flex-1 flex items-center gap-2.5 bg-black/60 border border-[#2b244d] rounded-2xl px-3.5 py-2.5 focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-400/20 transition-all">
+              <Wand2 className="w-4 h-4 text-purple-400 shrink-0" />
+              <input
+                type="text"
+                value={commandPrompt}
+                onChange={(e) => setCommandPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleExecuteCommandPrompt();
+                  }
+                }}
+                placeholder="Describe your video in any language... e.g. Cyberpunk samurai walking in neon rain, 4k 60fps"
+                className="w-full bg-transparent text-white placeholder-white/40 text-xs sm:text-sm focus:outline-none font-medium"
+              />
+              {commandPrompt && (
+                <button
+                  type="button"
+                  onClick={() => setCommandPrompt('')}
+                  className="text-white/40 hover:text-white p-1 cursor-pointer"
+                  title="Clear prompt"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Selectors & CTA */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap justify-end">
+              {/* Model Tag */}
+              <select
+                value={commandModel}
+                onChange={(e) => setCommandModel(e.target.value as any)}
+                className="bg-[#181335] text-purple-200 border border-purple-500/40 text-xs font-bold mono rounded-xl px-2.5 py-2.5 focus:outline-none cursor-pointer"
+                title="Select video generation engine"
+              >
+                <option value="luma">⚡ Luma Fast (Ray 2)</option>
+                <option value="kling">🎬 Kling Pro (v2.5)</option>
+                <option value="veo">🎥 Veo Ultra (3.1)</option>
+              </select>
+
+              {/* Ratio Tag */}
+              <select
+                value={commandRatio}
+                onChange={(e) => setCommandRatio(e.target.value as any)}
+                className="bg-[#181335] text-purple-200 border border-purple-500/40 text-xs font-bold mono rounded-xl px-2.5 py-2.5 focus:outline-none cursor-pointer"
+                title="Select aspect ratio"
+              >
+                <option value="9:16">📱 9:16 Reels</option>
+                <option value="16:9">🖥️ 16:9 Wide</option>
+                <option value="1:1">⬛ 1:1 Feed</option>
+              </select>
+
+              {/* Magic Prompt Enhancer */}
+              <button
+                type="button"
+                onClick={handleEnhanceCommandPrompt}
+                disabled={isEnhancingPrompt}
+                className="p-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/40 border border-purple-400/40 text-amber-300 transition-all cursor-pointer disabled:opacity-50"
+                title="Enhance prompt with cinematic camera & lighting details"
+              >
+                <Sparkles className={`w-4 h-4 ${isEnhancingPrompt ? 'animate-spin' : ''}`} />
+              </button>
+
+              {/* Instant Execute CTA */}
+              <button
+                type="button"
+                onClick={() => handleExecuteCommandPrompt()}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-extrabold text-xs sm:text-sm mono shadow-lg shadow-purple-600/40 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                <span>Generate Video</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Viral Prompt Suggestions */}
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pt-1 pb-0.5">
+            <span className="text-[10px] font-bold mono text-purple-300/70 uppercase tracking-wider shrink-0 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-300" />
+              <span>Inspirations:</span>
+            </span>
+            {LUMA_VIRAL_PROMPT_SUGGESTIONS.map((sug, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setCommandPrompt(sug.prompt);
+                  setCommandModel(sug.model);
+                  setCommandRatio(sug.ratio);
+                }}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-white/5 hover:bg-purple-500/20 border border-white/10 hover:border-purple-400/40 text-white/80 hover:text-white text-[11px] mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                title={sug.prompt}
+              >
+                <span>{sug.icon}</span>
+                <span>{sug.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MODAL 1: UPLOAD & REPLACE VIDEO (Creator Mode Feature)                    */}
       {/* ========================================================================= */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
@@ -1407,7 +1380,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                       </div>
                     </div>
 
-                    {/* Directional Nudge Buttons (Move Up, Move Down, Move Left, Move Right) */}
+                    {/* Directional Nudge Buttons */}
                     <div className="space-y-2 pt-1 border-t border-[#1f1b36]">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold text-white/80 mono flex items-center gap-1">
@@ -1423,7 +1396,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                         </button>
                       </div>
 
-                      {/* Directional Nudge Bar */}
                       <div className="grid grid-cols-5 gap-1.5">
                         <button
                           type="button"
@@ -1473,7 +1445,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
                       {/* Fit Mode Toggle & Zoom */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        {/* Fit Mode (Cover vs Contain) */}
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-white/70 mono flex items-center gap-1">
                             <Crop className="w-3 h-3 text-purple-400" />
@@ -1505,7 +1476,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                           </div>
                         </div>
 
-                        {/* Zoom / Scale Slider */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[10px] font-bold text-white/70 mono">
                             <span className="flex items-center gap-1">
@@ -1525,86 +1495,27 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                           />
                         </div>
                       </div>
-
-                      {/* Precise Vertical & Horizontal Sliders */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        {/* Vertical Move (Up / Down) */}
-                        <div className="space-y-1 bg-[#131024] p-2 rounded-xl border border-[#231e3d]">
-                          <div className="flex items-center justify-between text-[10px] font-bold mono">
-                            <span className="text-white/80">Vertical (Up/Down):</span>
-                            <span className="text-amber-300">{uploadPosY}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={uploadPosY}
-                            onChange={(e) => setUploadPosY(Number(e.target.value))}
-                            className="w-full accent-amber-400 cursor-pointer"
-                          />
-                          <div className="flex justify-between text-[9px] text-white/40 mono">
-                            <span>Top (0%)</span>
-                            <span>Center (50%)</span>
-                            <span>Bottom (100%)</span>
-                          </div>
-                        </div>
-
-                        {/* Horizontal Move (Left / Right) */}
-                        <div className="space-y-1 bg-[#131024] p-2 rounded-xl border border-[#231e3d]">
-                          <div className="flex items-center justify-between text-[10px] font-bold mono">
-                            <span className="text-white/80">Horizontal (Left/Right):</span>
-                            <span className="text-amber-300">{uploadPosX}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            step="1"
-                            value={uploadPosX}
-                            onChange={(e) => setUploadPosX(Number(e.target.value))}
-                            className="w-full accent-amber-400 cursor-pointer"
-                          />
-                          <div className="flex justify-between text-[9px] text-white/40 mono">
-                            <span>Left (0%)</span>
-                            <span>Center (50%)</span>
-                            <span>Right (100%)</span>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2.5">
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#272142]">
                 <button
                   type="button"
                   onClick={() => setIsUploadModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-[#181333] hover:bg-[#201a42] text-white/70 hover:text-white text-xs font-bold mono cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold mono text-white/60 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingUpload || (!uploadFile && !uploadPreviewUrl)}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-extrabold mono flex items-center gap-2 shadow-lg transition-all cursor-pointer ${
-                    isSavingUpload || (!uploadFile && !uploadPreviewUrl)
-                      ? 'bg-amber-500/40 text-black/60 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-amber-950/40 active:scale-95'
-                  }`}
+                  disabled={isSavingUpload || !uploadPreviewUrl}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-black mono flex items-center gap-2 shadow-lg shadow-amber-950/50 cursor-pointer disabled:opacity-50 active:scale-95 transition-all"
                 >
-                  {isSavingUpload ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-black/40 border-t-black rounded-full animate-spin" />
-                      <span>Saving Video...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      <span>Save & Replace Video</span>
-                    </>
-                  )}
+                  <Save className="w-4 h-4 text-black" />
+                  <span>{isSavingUpload ? 'Saving Video...' : 'Save & Replace Video'}</span>
                 </button>
               </div>
             </form>
@@ -1613,19 +1524,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL 2: EDIT BUTTON MODAL (Decide 9:16, 16:9, 1:1 & Save the Video)       */}
+      {/* MODAL 2: EDIT VIDEO OPTIONS (Decide 9:16, 16:9, 1:1 and save video)        */}
       {/* ========================================================================= */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="bg-[#120f24] border border-purple-500/40 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
-            <div className="p-5 border-b border-[#272142] flex items-center justify-between bg-gradient-to-r from-[#1a1438] to-[#120f24]">
+          <div className="bg-[#120f24] border border-purple-500/40 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="p-5 border-b border-[#272142] flex items-center justify-between bg-gradient-to-r from-[#181333] to-[#120f24]">
               <div className="space-y-1">
                 <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/40 text-[10px] font-bold mono uppercase">
-                  Video Settings & Export
+                  Home Preview Settings
                 </span>
                 <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
                   <Sliders className="w-5 h-5 text-purple-400" />
-                  <span>Edit Video Options</span>
+                  <span>Edit Showcase Video Options</span>
                 </h3>
               </div>
               <button
@@ -1645,7 +1556,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
               )}
 
-              {/* 1. DECIDE 9:16, 16:9, 1:1 */}
+              {/* Decide Aspect Ratio */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-white/90 mono flex items-center justify-between">
                   <span>Decide Aspect Ratio *</span>
@@ -1750,12 +1661,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 />
               </div>
 
-              {/* SAVE THE VIDEO OPTIONS */}
+              {/* Save Video Options */}
               <div className="pt-3 border-t border-[#272142] space-y-2.5">
                 <div className="text-xs font-bold text-white/90 mono">Save Video Options</div>
 
                 <div className="flex items-center gap-2">
-                  {/* Save Video Settings button */}
                   <button
                     type="submit"
                     className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-extrabold mono flex items-center justify-center gap-2 shadow-lg shadow-purple-950/50 cursor-pointer active:scale-95"
@@ -1764,7 +1674,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     <span>Save Video Settings</span>
                   </button>
 
-                  {/* Download Video file to device */}
                   <button
                     type="button"
                     onClick={handleDownloadVideo}
