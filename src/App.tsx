@@ -215,9 +215,11 @@ export default function App() {
     bgmVolume: 40,
   });
 
-  // Collapsible Studio Workspace State & Studio Tab State ('text' | 'image' | 'mobile-to-cinematic' | 'watermark')
+  // Studio Tab State ('text' | 'image' | 'mobile-to-cinematic' | 'watermark')
   const [isStudioExpanded, setIsStudioExpanded] = useState<boolean>(true);
   const [activeStudioTab, setActiveStudioTab] = useState<'text' | 'image' | 'mobile-to-cinematic' | 'watermark'>('text');
+  // Home Hub view state: 'generator' | 'history'
+  const [homeStudioTab, setHomeStudioTab] = useState<'generator' | 'history'>('generator');
 
   const handleOpenStudioWithMode = (
     mode: 'text' | 'image' | 'mobile-to-cinematic' | 'watermark',
@@ -226,6 +228,7 @@ export default function App() {
     ratio?: '9:16' | '16:9' | '1:1'
   ) => {
     setActiveStudioTab(mode);
+    setHomeStudioTab('generator');
     if (initialPrompt) {
       setPrompt(initialPrompt);
     }
@@ -235,7 +238,15 @@ export default function App() {
     if (ratio) {
       setSelectedRatio(ratio);
     }
-    navigateToStudioApp(initialPrompt, (model && model in FAL_MODELS) ? (model as ModelType) : undefined);
+    if (activeView !== 'studio') {
+      setActiveView('studio');
+    }
+    setTimeout(() => {
+      const el = document.getElementById('studio-workspace-anchor');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 120);
   };
 
   // Recent Prompts Drawer State (saves last 5 successful prompts)
@@ -767,75 +778,71 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
-        {/* Navigation View Selector */}
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => navigateToView('studio')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors ${
-                activeView === 'studio'
-                  ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
-                  : 'text-white/60 hover:text-white bg-[#18181b]'
-              }`}
-            >
-              Studio Generator
-            </button>
-            <button
-              onClick={() => navigateToView('history')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors ${
-                activeView === 'history'
-                  ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
-                  : 'text-white/60 hover:text-white bg-[#18181b]'
-              }`}
-            >
-              History Vault
-            </button>
-            <button
-              onClick={() => setIsSequenceBuilderOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors flex items-center gap-1.5 text-cyan-300 hover:text-white bg-[#18181b] hover:bg-[#202028] border border-cyan-500/25 cursor-pointer"
-              title="Open Sequence Builder & Multi-Clip Timeline"
-            >
-              <Layers className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Sequence Builder</span>
-            </button>
+        {/* Navigation View Selector (Only displayed on sub-pages; on main home view, Studio Hub is positioned below preview panel) */}
+        {activeView !== 'studio' && activeView !== 'studioApp' && (
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => navigateToView('studio')}
+                className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors text-white/60 hover:text-white bg-[#18181b]"
+              >
+                Studio Generator
+              </button>
+              <button
+                onClick={() => navigateToView('history')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors ${
+                  activeView === 'history'
+                    ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
+                    : 'text-white/60 hover:text-white bg-[#18181b]'
+                }`}
+              >
+                History Vault
+              </button>
+              <button
+                onClick={() => setIsSequenceBuilderOpen(true)}
+                className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors flex items-center gap-1.5 text-cyan-300 hover:text-white bg-[#18181b] hover:bg-[#202028] border border-cyan-500/25 cursor-pointer"
+                title="Open Sequence Builder & Multi-Clip Timeline"
+              >
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Sequence Builder</span>
+              </button>
 
-            {/* Active Sub-page indicators */}
-            {activeView === 'privacy' && (
-              <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
-                Privacy Policy
-              </span>
-            )}
-            {activeView === 'terms' && (
-              <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
-                Terms of Service
-              </span>
-            )}
-            {activeView === 'refund' && (
-              <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
-                Refund & Cancellation
-              </span>
-            )}
-            {activeView === 'contact' && (
-              <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
-                Contact Support
-              </span>
-            )}
-          </div>
+              {/* Active Sub-page indicators */}
+              {activeView === 'privacy' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
+                  Privacy Policy
+                </span>
+              )}
+              {activeView === 'terms' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
+                  Terms of Service
+                </span>
+              )}
+              {activeView === 'refund' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
+                  Refund & Cancellation
+                </span>
+              )}
+              {activeView === 'contact' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
+                  Contact Support
+                </span>
+              )}
+            </div>
 
-          {activeView !== 'studio' && (
             <button
               onClick={() => navigateToView('studio')}
               className="text-xs mono text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1"
             >
               <span>← Back to Studio</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* 1. STUDIO LANDING PAGE VIEW */}
-        {activeView === 'studio' && (
+        {/* 1. STUDIO VIEW (Home Page Preview Panel + Studio Hub Below) */}
+        {(activeView === 'studio' || activeView === 'studioApp') && (
           <div className="space-y-6 sm:space-y-7 animate-in fade-in duration-300">
-            {/* HERO SECTION WITH BIG CTA BUTTONS & HOME PAGE PREVIEW PANEL */}
+            {/* HERO SECTION WITH HEADLINE & CTAs ABOVE & HOME PAGE PREVIEW PANEL */}
             <HeroSection
               onOpenStudioWithMode={handleOpenStudioWithMode}
               isStudioOpen={false}
@@ -843,163 +850,107 @@ export default function App() {
               currentUserEmail={user?.email}
             />
 
-            {/* PERSISTENT GALAXY PRICING STRATEGY BANNER: Lifetime Validity & ₹99 Trial Pack */}
-            <div className="relative rounded-3xl bg-gradient-to-r from-[#170e2e]/95 via-[#0e0a22]/95 to-[#191036]/95 border border-purple-500/40 p-5 sm:p-6 overflow-hidden shadow-[0_0_50px_rgba(168,85,247,0.22)] backdrop-blur-xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 group transition-all hover:border-purple-400/60 animate-float-subtle">
-              {/* Cosmic Nebula Backdrops */}
-              <div className="absolute -top-20 -right-20 w-80 h-80 bg-purple-600/20 rounded-full blur-3xl pointer-events-none group-hover:bg-purple-600/30 transition-all duration-700" />
-              <div className="absolute -bottom-20 -left-10 w-72 h-72 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute top-1/2 left-1/3 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+            {/* ANCHOR FOR DIRECT SCROLL FROM COMMAND BAR / CTAs */}
+            <div id="studio-workspace-anchor" className="scroll-mt-24" />
 
-              <div className="space-y-2.5 relative z-10 max-w-3xl">
-                {/* Badges Strip */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-md shadow-orange-500/20 flex items-center gap-1.5 animate-pulse">
-                    <span>⚡</span>
-                    <span>TRIAL PACK • ₹99 ONLY</span>
-                  </span>
-
-                  <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-[11px] font-bold uppercase tracking-wider mono flex items-center gap-1.5 backdrop-blur-md">
-                    <Clock className="w-3.5 h-3.5 text-purple-300" />
-                    <span>Lifetime Validity — Credits Never Expire!</span>
-                  </span>
-
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] mono font-semibold flex items-center gap-1">
-                    <span>🇮🇳</span>
-                    <span>Instant UPI / GPay / PhonePe</span>
-                  </span>
-                </div>
-
-                {/* Main Heading */}
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-white tracking-tight flex flex-wrap items-center gap-2">
-                  <span>Create 3 Cinematic Videos for</span>
-                  <span className="galaxy-text font-black text-xl sm:text-2xl">just ₹99</span>
-                  <span className="text-white/40 hidden sm:inline">•</span>
-                  <span className="text-amber-300 font-semibold text-sm sm:text-base">
-                    No Monthly Subscriptions
-                  </span>
-                </h2>
-
-                {/* High-Intent Value Proposition */}
-                <p className="text-xs sm:text-[13px] text-white/80 leading-relaxed max-w-2xl">
-                  Get <strong className="text-amber-300 font-mono">150 Credits for ₹99</strong> (generate 3 Luma Ray 3 videos OR 1 Kling v2.5 Turbo video). Switch freely between <strong>Luma Ray 3, Kling Pro, and Google Veo 3.1</strong> from one shared wallet. Top up once, create anytime with zero monthly expiration trap.
-                </p>
-
-                {/* Feature Checklist */}
-                <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] mono text-white/60">
-                  <span className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    100% Watermark-Free HD Exports
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    Sequence Builder Timeline Included
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    Commercial Creator License
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Conversion Button */}
-              <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end gap-2 shrink-0 relative z-10 pt-2 lg:pt-0">
+            {/* STUDIO HUB NAVIGATION BAR: Studio Generator • History Vault • Sequence Builder */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-3xl bg-gradient-to-r from-purple-950/90 via-[#141026] to-indigo-950/90 border border-purple-500/40 backdrop-blur-xl shadow-xl">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                 <button
                   type="button"
-                  onClick={() => {
-                    setInsufficientCreditTrigger(false);
-                    setIsCreditModalOpen(true);
-                  }}
-                  className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-sm mono shadow-xl shadow-purple-600/35 active:scale-95 transition-all flex items-center justify-center gap-2.5 ring-2 ring-purple-400/40"
+                  onClick={() => setHomeStudioTab('generator')}
+                  className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
+                    homeStudioTab === 'generator'
+                      ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white shadow-lg shadow-purple-600/30 ring-1 ring-purple-400/40'
+                      : 'text-white/70 hover:text-white bg-white/5 border border-white/10 hover:bg-white/10'
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
-                  <span>⚡ Claim ₹99 Trial Pack</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <Film className="w-4 h-4 text-purple-300" />
+                  <span>🎬 Studio Generator</span>
                 </button>
-                <span className="text-[10px] text-white/40 mono text-center lg:text-right">
-                  🔒 Razorpay Secured • Instant 150cr Credit
-                </span>
-              </div>
-            </div>
-
-            {/* SHOWCASE GALLERY (Sample Videos Grid with Upload Feature Above FAQ) */}
-            <ShowcaseGallery
-              onRemixVideo={handleRemixVideo}
-              onOpenStudioWithMode={handleOpenStudioWithMode}
-              currentUserEmail={user?.email}
-            />
-
-            {/* HELP & FAQ SECTION AT THE BOTTOM OF LANDING PAGE */}
-            <HelpFaqSection
-              onOpenPlans={() => {
-                setInsufficientCreditTrigger(false);
-                setIsCreditModalOpen(true);
-              }}
-              onOpenSequenceBuilder={() => setIsSequenceBuilderOpen(true)}
-            />
-          </div>
-        )}
-
-        {/* 1.B. DEDICATED STUDIO APP WORKSPACE VIEW (Runway Mode) */}
-        {activeView === 'studioApp' && (
-          <div className="space-y-6 sm:space-y-7 animate-in fade-in duration-300">
-            {/* Dedicated Top Bar: Back to Website & Mode Switcher */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between bg-gradient-to-r from-purple-950/90 via-[#181824] to-indigo-950/90 border border-purple-500/40 p-4 sm:p-5 rounded-3xl shadow-xl gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 flex items-center justify-center text-white shadow-md shrink-0">
-                  <Sparkles className="w-5 h-5 fill-white" />
-                </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2 flex-wrap">
-                    <span>Studio Creation Workspace</span>
-                    <span className="text-[10px] mono bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-bold">
-                      Runway Mode
-                    </span>
-                  </h2>
-                  <p className="text-xs text-purple-200/80">
-                    Generate 4K AI videos with custom prompts, models, multi-images, aspect ratios & batch queue
-                  </p>
-                </div>
-              </div>
-
-              {/* Mode Switcher & Navigation */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                {/* Generation Mode Switcher */}
-                <div className="flex items-center bg-[#0d0d14] p-1 rounded-2xl border border-purple-500/30">
-                  <button
-                    type="button"
-                    onClick={() => setStudioModeTab('single')}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                      studioModeTab === 'single'
-                        ? 'bg-purple-600 text-white shadow-md'
-                        : 'text-white/60 hover:text-white'
-                    }`}
-                  >
-                    <Film className="w-3.5 h-3.5" />
-                    <span>Single Studio</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStudioModeTab('batch')}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                      studioModeTab === 'batch'
-                        ? 'bg-gradient-to-r from-amber-500 to-fuchsia-600 text-white shadow-md shadow-fuchsia-950/40'
-                        : 'text-white/60 hover:text-white'
-                    }`}
-                  >
-                    <Zap className="w-3.5 h-3.5 text-amber-300" />
-                    <span>⚡ Batch Queue</span>
-                  </button>
-                </div>
 
                 <button
                   type="button"
-                  onClick={() => navigateToView('studio')}
-                  className="px-4 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/60 text-purple-200 hover:text-white font-extrabold mono text-xs border border-purple-400/30 transition-all cursor-pointer shadow-sm flex items-center gap-1.5"
+                  onClick={() => setHomeStudioTab('history')}
+                  className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
+                    homeStudioTab === 'history'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 ring-1 ring-purple-400/40'
+                      : 'text-white/70 hover:text-white bg-white/5 border border-white/10 hover:bg-white/10'
+                  }`}
                 >
-                  <span>← Back to Website</span>
+                  <History className="w-4 h-4 text-purple-300" />
+                  <span>📜 History Vault</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSequenceBuilderOpen(true)}
+                  className="px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold mono transition-all flex items-center gap-2 text-cyan-300 hover:text-white bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/40 shadow-sm cursor-pointer"
+                  title="Open Multi-Clip Timeline & Sequence Builder"
+                >
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  <span>🎞️ Sequence Builder</span>
                 </button>
               </div>
+
+              {/* Quick Single Studio / Batch Queue Switcher */}
+              {homeStudioTab === 'generator' && (
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <div className="flex items-center bg-[#0d0d14] p-1 rounded-2xl border border-purple-500/30">
+                    <button
+                      type="button"
+                      onClick={() => setStudioModeTab('single')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                        studioModeTab === 'single'
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      <Film className="w-3.5 h-3.5" />
+                      <span>Single Studio</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStudioModeTab('batch')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold mono transition-all flex items-center gap-1.5 cursor-pointer ${
+                        studioModeTab === 'batch'
+                          ? 'bg-gradient-to-r from-amber-500 to-fuchsia-600 text-white shadow-md shadow-fuchsia-950/40'
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-300" />
+                      <span>⚡ Batch Queue</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* TAB CONTENT: History Vault vs Studio Generator Workspace */}
+            {homeStudioTab === 'history' ? (
+              <HistoryView
+                userEmail={user?.email}
+                userId={user?.id}
+                userCredits={user?.credits ?? 0}
+                onSelectPrompt={(p, m, r) => {
+                  setPrompt(p);
+                  setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
+                  setSelectedRatio(r);
+                  setHomeStudioTab('generator');
+                  setTimeout(() => {
+                    const el = document.getElementById('studio-workspace-anchor');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }}
+                onNavigateToGallery={() => {
+                  setHomeStudioTab('generator');
+                  setTimeout(() => {
+                    document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
+                  }, 120);
+                }}
+              />
+            ) : (
+              <div className="space-y-6 sm:space-y-7">
 
             {/* Global Notice Toast */}
             {globalNotice && (
@@ -1984,8 +1935,88 @@ export default function App() {
           </div>
         </div>
       )}
+    </div>
+  )}
 
-        {/* SHOWCASE GALLERY (Sample Videos Grid with Upload Feature Above FAQ) */}
+  {/* PERSISTENT GALAXY PRICING STRATEGY BANNER: Lifetime Validity & ₹99 Trial Pack */}
+  <div className="relative rounded-3xl bg-gradient-to-r from-[#170e2e]/95 via-[#0e0a22]/95 to-[#191036]/95 border border-purple-500/40 p-5 sm:p-6 overflow-hidden shadow-[0_0_50px_rgba(168,85,247,0.22)] backdrop-blur-xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 group transition-all hover:border-purple-400/60 animate-float-subtle">
+    {/* Cosmic Nebula Backdrops */}
+    <div className="absolute -top-20 -right-20 w-80 h-80 bg-purple-600/20 rounded-full blur-3xl pointer-events-none group-hover:bg-purple-600/30 transition-all duration-700" />
+    <div className="absolute -bottom-20 -left-10 w-72 h-72 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="absolute top-1/2 left-1/3 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+    <div className="space-y-2.5 relative z-10 max-w-3xl">
+      {/* Badges Strip */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-md shadow-orange-500/20 flex items-center gap-1.5 animate-pulse">
+          <span>⚡</span>
+          <span>TRIAL PACK • ₹99 ONLY</span>
+        </span>
+
+        <span className="px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-[11px] font-bold uppercase tracking-wider mono flex items-center gap-1.5 backdrop-blur-md">
+          <Clock className="w-3.5 h-3.5 text-purple-300" />
+          <span>Lifetime Validity — Credits Never Expire!</span>
+        </span>
+
+        <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] mono font-semibold flex items-center gap-1">
+          <span>🇮🇳</span>
+          <span>Instant UPI / GPay / PhonePe</span>
+        </span>
+      </div>
+
+      {/* Main Heading */}
+      <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-white tracking-tight flex flex-wrap items-center gap-2">
+        <span>Create 3 Cinematic Videos for</span>
+        <span className="galaxy-text font-black text-xl sm:text-2xl">just ₹99</span>
+        <span className="text-white/40 hidden sm:inline">•</span>
+        <span className="text-amber-300 font-semibold text-sm sm:text-base">
+          No Monthly Subscriptions
+        </span>
+      </h2>
+
+      {/* High-Intent Value Proposition */}
+      <p className="text-xs sm:text-[13px] text-white/80 leading-relaxed max-w-2xl">
+        Get <strong className="text-amber-300 font-mono">150 Credits for ₹99</strong> (generate 3 Luma Ray 3 videos OR 1 Kling v2.5 Turbo video). Switch freely between <strong>Luma Ray 3, Kling Pro, and Google Veo 3.1</strong> from one shared wallet. Top up once, create anytime with zero monthly expiration trap.
+      </p>
+
+      {/* Feature Checklist */}
+      <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] mono text-white/60">
+        <span className="flex items-center gap-1">
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          100% Watermark-Free HD Exports
+        </span>
+        <span className="flex items-center gap-1">
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          Sequence Builder Timeline Included
+        </span>
+        <span className="flex items-center gap-1">
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          Commercial Creator License
+        </span>
+      </div>
+    </div>
+
+    {/* Action Conversion Button */}
+    <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end gap-2 shrink-0 relative z-10 pt-2 lg:pt-0">
+      <button
+        type="button"
+        onClick={() => {
+          setInsufficientCreditTrigger(false);
+          setIsCreditModalOpen(true);
+        }}
+        className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-sm mono shadow-xl shadow-purple-600/35 active:scale-95 transition-all flex items-center justify-center gap-2.5 ring-2 ring-purple-400/40"
+      >
+        <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
+        <span>⚡ Claim ₹99 Trial Pack</span>
+        <ArrowRight className="w-4 h-4" />
+      </button>
+      <span className="text-[10px] text-white/40 mono text-center lg:text-right">
+        🔒 Razorpay Secured • Instant 150cr Credit
+      </span>
+    </div>
+  </div>
+
+  {/* SHOWCASE GALLERY (Sample Videos Grid with Upload Feature Above FAQ) */}
         <ShowcaseGallery
           onRemixVideo={handleRemixVideo}
           onOpenStudioWithMode={handleOpenStudioWithMode}
