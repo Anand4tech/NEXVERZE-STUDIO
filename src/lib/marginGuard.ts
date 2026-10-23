@@ -69,8 +69,9 @@ export const ESTIMATED_API_COSTS_USD: Record<ModelType, Record<DurationType, num
 };
 
 // Global currency conversions & credit valuation
-export const USD_TO_INR_RATE = 86.5; // Current exchange reference
-export const VALUE_PER_CREDIT_INR = 0.70; // 1 credit = ₹0.70 user retail rate
+export const USD_TO_INR_RATE = 94.89; // Current exchange reference (1 USD = ₹94.89)
+export const VALUE_PER_CREDIT_INR = 0.532; // Worst-case net credit realization (₹2,999 / 5,500 cr less ~2.36% Razorpay fee)
+export const RETAIL_CREDIT_VALUE_INR = 0.66; // Nano Trial retail realization (₹99 / 150 cr)
 export const MIN_ACCEPTABLE_MARGIN_PERCENT = 50.0; // 50% Profit Safeguard Floor
 
 const STORAGE_KEY_LOGS = 'nexverze_api_consumption_logs';

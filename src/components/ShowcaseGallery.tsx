@@ -89,41 +89,21 @@ export const checkIsLivePreviewCreator = (userEmail?: string | null): boolean =>
     return true;
   }
 
-  // 2. Explicit admin parameter in URL (?creator=true or ?admin=true or ?edit=true)
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('creator') === 'true' || params.get('admin') === 'true' || params.get('edit') === 'true') {
-      return true;
-    }
-  } catch {}
-
-  // 3. Local storage explicit admin flag
+  // 2. Local storage explicit admin flag
   try {
     const stored = localStorage.getItem('nexverze_is_admin_preview');
     if (stored === 'true') return true;
   } catch {}
 
-  // 4. Live preview host check:
-  // Running on localhost, 127.0.0.1, or dev preview container (contains '-dev-')
+  // 3. Dev preview host check ONLY (never match production .run.app or nexverze public domains)
   const host = window.location.hostname || '';
   if (
     host === 'localhost' ||
     host === '127.0.0.1' ||
     host.includes('-dev-') ||
     host.includes('webcontainer') ||
-    host.includes('cloudshell') ||
-    host.includes('run.app') ||
-    host.includes('nexverze')
+    host.includes('cloudshell')
   ) {
-    return true;
-  }
-
-  // 5. Embedded inside AI Studio preview iframe in the developer console
-  try {
-    if (window.self !== window.top) {
-      return true;
-    }
-  } catch {
     return true;
   }
 
@@ -241,6 +221,7 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
   getMotionLabel,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
+  const promptBoxRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Playback & Scrubbing state
@@ -500,13 +481,25 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
     setTimeout(() => setGalleryNotice(null), 3000);
   };
 
-  // Frictionless "1-Tap Remix" Floating Action (Suggestion 5)
+  // Frictionless "Remix Prompt" Floating Action with Upward Parameter Micro-Animation
   const handleRemix = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsRemixFlying(true);
-    setTimeout(() => setIsRemixFlying(false), 1400);
+    setTimeout(() => setIsRemixFlying(false), 1100);
+
+    const originEl = promptBoxRef.current || cardRef.current || (e.currentTarget as HTMLElement);
+    const rect = originEl ? originEl.getBoundingClientRect() : null;
+    const sourceRect = rect
+      ? {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        }
+      : undefined;
 
     onRemixVideo({
+      title: video.title,
       prompt: video.prompt,
       modelName: video.model,
       duration: video.duration || '10s',
@@ -514,30 +507,28 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
       motionIntensity,
       sceneTransition,
       colorGrading,
+      sourceRect,
     });
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent('nexverze-remix-action', {
           detail: {
+            title: video.title,
             prompt: video.prompt,
             modelName: video.model,
             duration: video.duration || '5s',
             aspectRatio: video.aspect_ratio,
             motionIntensity,
+            sceneTransition,
+            colorGrading,
+            sourceRect,
           },
         })
       );
     }
 
-    setTimeout(() => {
-      const commandBar = document.getElementById('floating-command-bar') || document.getElementById('studio-prompt-textarea');
-      if (commandBar) {
-        commandBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
-
-    setGalleryNotice(`✨ Remixed "${video.title}" into Command Center! Ready to generate.`);
+    setGalleryNotice(`✨ Remixing "${video.title}" — floating prompt & model parameters to generator...`);
     setTimeout(() => setGalleryNotice(null), 3500);
   };
 
@@ -623,28 +614,50 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
         } ${
           isHovered || isPlaying
             ? 'opacity-85 scale-[1.03] animate-pulse'
-            : 'opacity-25 scale-100'
+            : 'opacity-25 scale-100 group-hover/card:opacity-80 group-hover/card:scale-[1.03]'
         }`}
       />
 
-      {/* Frictionless 1-Tap Remix Floating Upward Overlay (Suggestion 5) */}
+      {/* Card-Level Upward Launch Micro-Animation for Prompt & Model Parameters */}
       {isRemixFlying && (
-        <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-2xl animate-in fade-in zoom-in-95 duration-200">
-          <div className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white font-extrabold text-xs mono shadow-2xl flex items-center gap-2 animate-bounce ring-2 ring-purple-300">
-            <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-            <span>Remixing into Command Center 🚀</span>
+        <div className="absolute inset-0 z-50 pointer-events-none flex flex-col items-center justify-center p-3 bg-black/75 backdrop-blur-md rounded-2xl overflow-visible">
+          <div className="w-full max-w-[92%] p-3 rounded-2xl bg-gradient-to-br from-purple-950/95 via-[#181230] to-fuchsia-950/95 border border-fuchsia-400/70 shadow-[0_0_40px_rgba(217,70,239,0.55)] space-y-2 animate-remix-token-up">
+            <div className="flex items-center justify-between gap-1.5 text-[10px] mono font-extrabold text-amber-300">
+              <span className="flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+                <span>Floating to Generator Bar ↑</span>
+              </span>
+              <ArrowUp className="w-3.5 h-3.5 text-fuchsia-300 animate-bounce" />
+            </div>
+            <p className="text-[11px] text-white/95 line-clamp-2 italic font-serif">
+              "{video.prompt}"
+            </p>
+            <div className="flex flex-wrap items-center gap-1 pt-0.5 text-[9px] mono font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-purple-600/50 border border-purple-300/50 text-white uppercase">
+                {video.model}
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-fuchsia-600/50 border border-fuchsia-300/50 text-white">
+                {video.aspect_ratio}
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/30 border border-amber-300/50 text-amber-200">
+                {video.duration || '10s'}
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-cyan-500/30 border border-cyan-300/50 text-cyan-200">
+                Motion {motionIntensity}
+              </span>
+            </div>
           </div>
         </div>
       )}
 
       <div
         ref={cardRef}
-        className={`group bg-[#121020] border rounded-2xl overflow-hidden shadow-xl transition-all duration-300 flex flex-col justify-between ${
+        className={`group showcase-card-interactive bg-[#121020] border rounded-2xl overflow-hidden shadow-xl flex flex-col justify-between ${
           isReplaced && showCreatorButtons
-            ? 'border-amber-500/60 ring-1 ring-amber-500/30 shadow-amber-950/20'
+            ? 'border-amber-500/60 ring-1 ring-amber-500/30 shadow-amber-950/20 hover:border-amber-400'
             : hasVideo
-            ? 'border-[#272738] hover:border-purple-500/50'
-            : 'border-dashed border-purple-500/30 hover:border-amber-400/60 bg-[#121020]/70'
+            ? 'border-[#272738] hover:border-purple-400/80 hover:ring-1 hover:ring-purple-400/40'
+            : 'border-dashed border-purple-500/30 hover:border-amber-400/70 bg-[#121020]/70'
         }`}
       >
       {/* ========================================================================= */}
@@ -1019,31 +1032,47 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
           </div>
         </div>
 
-        {/* Title & Prompt with Hover Lighting */}
-        <div className={`p-2 rounded-xl transition-all duration-300 ${
-          isHovered ? 'bg-[#1a1630] border border-purple-500/40 shadow-md shadow-purple-950/40' : 'bg-transparent border border-transparent'
-        }`}>
-          <div className="flex items-center justify-between gap-1">
+        {/* Title & Prompt with Hover Lighting + Quick Remix Prompt Action */}
+        <div
+          ref={promptBoxRef}
+          className={`p-2.5 rounded-xl transition-all duration-300 ${
+            isHovered ? 'bg-[#1a1630] border border-purple-500/40 shadow-md shadow-purple-950/40' : 'bg-[#141126]/60 border border-white/[0.05]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-1.5">
             <h4 className={`font-bold text-xs sm:text-sm line-clamp-1 transition-colors ${isHovered ? 'text-purple-200' : 'text-white group-hover:text-purple-300'}`}>
               {video.title}
             </h4>
-            {isReplaced && showCreatorButtons && (
-              <span className="shrink-0 text-[10px] font-bold text-amber-400 mono">
-                [Custom Video]
-              </span>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              {isReplaced && showCreatorButtons && (
+                <span className="text-[10px] font-bold text-amber-400 mono">
+                  [Custom]
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleRemix}
+                className="px-2 py-0.5 rounded-lg bg-purple-600/25 hover:bg-purple-600/50 border border-purple-400/40 text-purple-200 hover:text-white text-[10px] font-bold mono flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                title="Remix Prompt: Float prompt & model parameters to main generator bar"
+              >
+                <Sparkles className="w-2.5 h-2.5 text-amber-300" />
+                <span>Remix Prompt</span>
+              </button>
+            </div>
           </div>
-          <p className="text-[11px] text-white/70 line-clamp-2 italic font-serif mt-0.5">
+          <p className="text-[11px] text-white/75 line-clamp-2 italic font-serif mt-1">
             "{video.prompt}"
           </p>
 
-          {/* Speed & Quality Tag */}
+          {/* Speed, Model Parameters & Duration Tag */}
           <div className="flex items-center justify-between text-[10px] mono text-purple-300/80 pt-1.5 mt-1 border-t border-white/[0.05]">
             <span className="flex items-center gap-1 text-amber-300 font-semibold">
               <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
               <span>{video.renderSpeed || '⚡ 4.2s • 4K UHD'}</span>
             </span>
-            <span className="text-white/40">{video.duration || '10s'}</span>
+            <span className="text-white/50">
+              {video.model.toUpperCase()} • {video.aspect_ratio} • {video.duration || '10s'}
+            </span>
           </div>
         </div>
 
@@ -1379,20 +1408,20 @@ export const ShowcaseVideoCard: React.FC<ShowcaseVideoCardProps> = ({
               </button>
             )}
 
-            {/* Action Row: Remix Video (Populates Studio) + Revert (if replaced) */}
+            {/* Action Row: Remix Prompt (Floats Prompt & Model Parameters Upward to Studio Generator) + Revert (if replaced) */}
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={handleRemix}
                 className={`flex-1 py-2.5 px-3 rounded-xl text-white text-xs font-extrabold mono flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
                   isHovered
-                    ? 'bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 shadow-xl shadow-fuchsia-500/50 ring-2 ring-fuchsia-400/80 scale-[1.02] animate-pulse text-white'
+                    ? 'bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 shadow-xl shadow-fuchsia-500/50 ring-2 ring-fuchsia-400/80 scale-[1.02] text-white'
                     : 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-lg shadow-purple-950/40'
                 }`}
-                title="Remix: auto-fill prompt, engine, duration, and color grade into Studio"
+                title="Remix Prompt: Float prompt, model, aspect ratio, and duration upward into the main generator bar"
               >
                 <Sparkles className={`w-3.5 h-3.5 fill-white ${isHovered ? 'animate-spin' : ''}`} />
-                <span>{isHovered ? '✨ Remix This Prompt (1-Click)' : 'Remix Video'}</span>
+                <span>{isHovered ? '✨ Remix Prompt (Float to Generator ↑)' : 'Remix Prompt'}</span>
               </button>
 
               {isReplaced && showCreatorButtons && (
@@ -1424,7 +1453,7 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
 }) => {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(true);
-  const [activeFormatTab, setActiveFormatTab] = useState<'bento' | 'all' | '9:16' | '16:9' | '1:1'>('bento');
+  const [activeFormatTab, setActiveFormatTab] = useState<'bento' | 'all' | '9:16' | '16:9' | '1:1'>('all');
   const [studioModalVideo, setStudioModalVideo] = useState<VideoSample | null>(null);
 
   // Detect whether the current viewer is the creator in live preview
@@ -2043,18 +2072,6 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
       <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 text-xs mono">
         <button
           type="button"
-          onClick={() => setActiveFormatTab('bento')}
-          className={`px-3.5 py-1.5 rounded-xl font-extrabold transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
-            activeFormatTab === 'bento'
-              ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white border-fuchsia-400 shadow-md ring-1 ring-fuchsia-400/50'
-              : 'bg-[#121020] text-purple-300/80 border-[#272738] hover:text-white hover:border-purple-500/40'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
-          <span>🍱 Dynamic Bento Grid (Magazine)</span>
-        </button>
-        <button
-          type="button"
           onClick={() => setActiveFormatTab('all')}
           className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer border ${
             activeFormatTab === 'all'
@@ -2078,6 +2095,18 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
         </button>
         <button
           type="button"
+          onClick={() => setActiveFormatTab('1:1')}
+          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
+            activeFormatTab === '1:1'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-md'
+              : 'bg-[#121020] text-white/60 border-[#272738] hover:text-white'
+          }`}
+        >
+          <Square className="w-3.5 h-3.5 text-indigo-400" />
+          <span>1:1 Square (4 Slots)</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveFormatTab('16:9')}
           className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
             activeFormatTab === '16:9'
@@ -2090,21 +2119,20 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
         </button>
         <button
           type="button"
-          onClick={() => setActiveFormatTab('1:1')}
-          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
-            activeFormatTab === '1:1'
-              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-purple-400 shadow-md'
-              : 'bg-[#121020] text-white/60 border-[#272738] hover:text-white'
+          onClick={() => setActiveFormatTab('bento')}
+          className={`px-3.5 py-1.5 rounded-xl font-extrabold transition-all whitespace-nowrap cursor-pointer border flex items-center gap-1.5 ${
+            activeFormatTab === 'bento'
+              ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white border-fuchsia-400 shadow-md ring-1 ring-fuchsia-400/50'
+              : 'bg-[#121020] text-purple-300/80 border-[#272738] hover:text-white hover:border-purple-500/40'
           }`}
         >
-          <Square className="w-3.5 h-3.5 text-indigo-400" />
-          <span>1:1 Square (4 Slots)</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
+          <span>🍱 Dynamic Bento Grid (Magazine)</span>
         </button>
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. DYNAMIC BENTO / FLUID MASONRY SHOWCASE GRID (Suggestion 2)             */}
-      {/* Interleave tall 9:16 reels with wide 16:9 cinematic landscape banners     */}
+      {/* DYNAMIC BENTO / FLUID MASONRY SHOWCASE GRID                               */}
       {/* ========================================================================= */}
       {activeFormatTab === 'bento' && (
         <div className="space-y-4 animate-in fade-in duration-300">
@@ -2144,7 +2172,7 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* ROW 1: 9:16 VERTICAL REELS                                                */}
+      {/* ROW 1: 9:16 VERTICAL REELS (FIRST ROW: 4 VIDEOS)                          */}
       {/* ========================================================================= */}
       {(activeFormatTab === 'all' || activeFormatTab === '9:16') && (
         <div className="space-y-3.5">
@@ -2168,13 +2196,43 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {videos916.map((video) => renderVideoCard(video))}
+            {(activeFormatTab === 'all' ? videos916.slice(0, 4) : videos916).map((video) => renderVideoCard(video))}
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* ROW 2: 16:9 WIDESCREEN VIDEOS (4 SLOTS)                                   */}
+      {/* ROW 2: 1:1 SQUARE VIDEOS (SECOND ROW: 4 VIDEOS)                           */}
+      {/* ========================================================================= */}
+      {(activeFormatTab === 'all' || activeFormatTab === '1:1') && (
+        <div className="space-y-3.5 pt-2">
+          <div className="flex items-center justify-between border-b border-indigo-500/15 pb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300">
+                <Square className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                  <span>1:1 Square Showcase</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
+                    4 Slots • Instagram & Social Feeds
+                  </span>
+                </h3>
+                <p className="text-[11px] text-white/50">
+                  Square 1:1 format optimized for Instagram posts and social media feeds.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {videos11.map((video) => renderVideoCard(video))}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ROW 3: 16:9 WIDESCREEN VIDEOS (THIRD ROW: 4 VIDEOS)                       */}
       {/* ========================================================================= */}
       {(activeFormatTab === 'all' || activeFormatTab === '16:9') && (
         <div className="space-y-3.5 pt-2">
@@ -2203,32 +2261,27 @@ export const ShowcaseGallery: React.FC<ShowcaseGalleryProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* ROW 3: 1:1 SQUARE VIDEOS (4 SLOTS)                                        */}
-      {/* ========================================================================= */}
-      {(activeFormatTab === 'all' || activeFormatTab === '1:1') && (
+      {/* Preserve remaining 9:16 videos below Row 3 when viewing All Formats so nothing is deleted */}
+      {activeFormatTab === 'all' && videos916.length > 4 && (
         <div className="space-y-3.5 pt-2">
-          <div className="flex items-center justify-between border-b border-indigo-500/15 pb-2">
+          <div className="flex items-center justify-between border-b border-purple-500/15 pb-2">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300">
-                <Square className="w-4 h-4" />
+              <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-300">
+                <Smartphone className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                  <span>1:1 Square Showcase</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
-                    4 Slots • Instagram & Social Feeds
+                  <span>More 9:16 Vertical Reels</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono">
+                    Shorts & Stories
                   </span>
                 </h3>
-                <p className="text-[11px] text-white/50">
-                  Square 1:1 format optimized for Instagram posts and social media feeds.
-                </p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {videos11.map((video) => renderVideoCard(video))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {videos916.slice(4).map((video) => renderVideoCard(video))}
           </div>
         </div>
       )}

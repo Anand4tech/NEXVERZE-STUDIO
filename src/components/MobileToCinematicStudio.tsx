@@ -166,6 +166,7 @@ export const MobileToCinematicStudio: React.FC<MobileToCinematicStudioProps> = (
         body: JSON.stringify({
           frames,
           subjectHint: fileToAnalyze.name.replace(/\.[^/.]+$/, ''),
+          email: user.email,
         }),
       });
 
@@ -436,27 +437,30 @@ export const MobileToCinematicStudio: React.FC<MobileToCinematicStudioProps> = (
                     <label className="text-[10px] mono text-white/60">Target Engine:</label>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                       {[
-                        { id: 'ltx', label: 'LTX Fast', rate: '15cr' },
-                        { id: 'luma', label: 'Luma Ray 3', rate: '50cr' },
-                        { id: 'wan', label: 'Wan 2.1', rate: '45cr' },
-                        { id: 'hunyuan', label: 'Hunyuan', rate: '65cr' },
-                        { id: 'kling', label: 'Kling Pro', rate: '50cr' },
-                        { id: 'veo3', label: 'Veo Ultra', rate: '75cr' },
-                      ].map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => setMcModel(m.id as any)}
-                          className={`py-2 px-1 rounded-xl text-[10px] mono font-bold border transition-all cursor-pointer text-center ${
-                            mcModel === m.id
-                              ? 'bg-amber-500 text-black border-amber-300 shadow-md'
-                              : 'bg-black/40 border-white/10 text-white/70 hover:text-white'
-                          }`}
-                        >
-                          <div className="truncate">{m.label}</div>
-                          <div className="text-[9px] font-normal opacity-90">{m.rate}</div>
-                        </button>
-                      ))}
+                        { id: 'ltx', key: 'ltx' as ModelType, label: 'LTX Fast' },
+                        { id: 'luma', key: 'luma' as ModelType, label: 'Luma Ray 3' },
+                        { id: 'wan', key: 'wan' as ModelType, label: 'Wan 2.1' },
+                        { id: 'hunyuan', key: 'hunyuan' as ModelType, label: 'Hunyuan' },
+                        { id: 'kling', key: 'kling' as ModelType, label: 'Kling Pro' },
+                        { id: 'veo3', key: 'veo' as ModelType, label: 'Veo Ultra' },
+                      ].map((m) => {
+                        const rate = MODEL_COST[m.key]?.[mcDuration as DurationType] ?? MODEL_COST[m.key]['5s'];
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setMcModel(m.id as any)}
+                            className={`py-2 px-1 rounded-xl text-[10px] mono font-bold border transition-all cursor-pointer text-center ${
+                              mcModel === m.id
+                                ? 'bg-amber-500 text-black border-amber-300 shadow-md'
+                                : 'bg-black/40 border-white/10 text-white/70 hover:text-white'
+                            }`}
+                          >
+                            <div className="truncate">{m.label}</div>
+                            <div className="text-[9px] font-normal opacity-90">{rate}cr</div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

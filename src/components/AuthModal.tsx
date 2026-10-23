@@ -132,13 +132,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </form>
 
         <div className="mt-5 pt-4 border-t border-[#27272a] flex items-center justify-between text-xs">
-          <button
-            type="button"
-            onClick={handleQuickAdminLogin}
-            className="text-purple-400 hover:text-purple-300 underline mono text-[11px]"
-          >
-            Quick Fill: anand4earn@gmail.com
-          </button>
+          <span className="text-white/40 mono text-[10px]">
+            Protected by Server-Side Credit Verification
+          </span>
           <span className="text-white/40 mono text-[10px] flex items-center gap-1">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             Supabase Auth

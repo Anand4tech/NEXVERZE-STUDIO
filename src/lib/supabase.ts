@@ -62,12 +62,6 @@ const LOCAL_HISTORY_KEY = 'nexverze_studio_history';
 export async function getOrCreateStudioUser(email: string): Promise<StudioUser> {
   const cleanEmail = email.trim().toLowerCase();
   const supabase = getSupabaseClient();
-  const isTargetPro = cleanEmail === 'anand4earn@gmail.com';
-
-  if (isTargetPro && typeof window !== 'undefined') {
-    localStorage.setItem('nexverze_studio_paid_user', 'true');
-    localStorage.setItem('nexverze_user_plan', 'pro');
-  }
 
   try {
     const { data, error } = await supabase
@@ -78,11 +72,6 @@ export async function getOrCreateStudioUser(email: string): Promise<StudioUser> 
 
     if (data && !error) {
       const userObj = data as StudioUser;
-      if (isTargetPro) {
-        userObj.is_pro = true;
-        userObj.plan = 'pro';
-        userObj.credits = Math.max(userObj.credits || 0, 5000);
-      }
       localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(userObj));
       return userObj;
     }
@@ -90,9 +79,9 @@ export async function getOrCreateStudioUser(email: string): Promise<StudioUser> 
     const newUser: StudioUser = {
       id: crypto.randomUUID(),
       email: cleanEmail,
-      credits: isTargetPro ? 5000 : 0,
-      plan: isTargetPro ? 'pro' : 'starter',
-      is_pro: isTargetPro,
+      credits: 0,
+      plan: 'starter',
+      is_pro: false,
       created_at: new Date().toISOString(),
     };
 
@@ -111,22 +100,15 @@ export async function getOrCreateStudioUser(email: string): Promise<StudioUser> 
   const cached = localStorage.getItem(`${LOCAL_USER_KEY}_${cleanEmail}`);
   if (cached) {
     const userObj = JSON.parse(cached) as StudioUser;
-    if (isTargetPro) {
-      userObj.is_pro = true;
-      userObj.plan = 'pro';
-      userObj.credits = Math.max(userObj.credits || 0, 5000);
-      localStorage.setItem(`${LOCAL_USER_KEY}_${cleanEmail}`, JSON.stringify(userObj));
-      localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(userObj));
-    }
     return userObj;
   }
 
   const fallbackUser: StudioUser = {
     id: crypto.randomUUID(),
     email: cleanEmail,
-    credits: isTargetPro ? 5000 : 0,
-    plan: isTargetPro ? 'pro' : 'starter',
-    is_pro: isTargetPro,
+    credits: 0,
+    plan: 'starter',
+    is_pro: false,
     created_at: new Date().toISOString(),
   };
   localStorage.setItem(`${LOCAL_USER_KEY}_${cleanEmail}`, JSON.stringify(fallbackUser));
@@ -158,18 +140,10 @@ export async function deductUserCredits(user: StudioUser, amount: number): Promi
 }
 
 export async function addUserCredits(user: StudioUser, amount: number): Promise<StudioUser> {
-  const newBalance = user.credits + amount;
+  // Credits can only be minted server-side via /api/razorpay/verify after cryptographic payment validation.
+  // This helper only syncs the already-verified local user state.
+  const newBalance = Math.max(0, user.credits + amount);
   const updatedUser: StudioUser = { ...user, credits: newBalance };
-  const supabase = getSupabaseClient();
-
-  try {
-    await supabase
-      .from('studio_users')
-      .update({ credits: newBalance })
-      .eq('id', user.id);
-  } catch (err) {
-    console.warn('Add credit error:', err);
-  }
 
   localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(updatedUser));
   localStorage.setItem(`${LOCAL_USER_KEY}_${user.email}`, JSON.stringify(updatedUser));
@@ -394,7 +368,7 @@ export const SUPABASE_STUDIO_SQL = `-- Run in Supabase SQL Editor:
 CREATE TABLE IF NOT EXISTS studio_users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text UNIQUE NOT NULL,
-  credits int NOT NULL DEFAULT 50,
+  credits int NOT NULL DEFAULT 0,
   created_at timestamptz DEFAULT now()
 );
 
@@ -417,8 +391,8 @@ CREATE TABLE IF NOT EXISTS credit_transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid,
   email text NOT NULL,
-  order_id text NOT NULL,
-  payment_id text NOT NULL,
+  order_id text UNIQUE NOT NULL,
+  payment_id text UNIQUE NOT NULL,
   amount_inr numeric NOT NULL,
   credits_added int NOT NULL,
   created_at timestamptz DEFAULT now()
@@ -446,15 +420,20 @@ ALTER TABLE studio_generations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credit_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorite_videos ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow anon read/write studio_users" ON studio_users
-  FOR ALL USING (true) WITH CHECK (true);
+-- Prevent client-side DevTools credit tampering: anon can read & create 0-credit profiles, but cannot mint credits directly
+CREATE POLICY "Allow anon select studio_users" ON studio_users
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow anon insert zero-credit studio_users" ON studio_users
+  FOR INSERT WITH CHECK (credits = 0);
+
+CREATE POLICY "Allow anon select credit_transactions" ON credit_transactions
+  FOR SELECT USING (true);
 
 CREATE POLICY "Allow anon read/write studio_generations" ON studio_generations
-  FOR ALL USING (true) WITH CHECK (true);
-
-CREATE POLICY "Allow anon read/write credit_transactions" ON credit_transactions
   FOR ALL USING (true) WITH CHECK (true);
 
 CREATE POLICY "Allow anon read/write favorite_videos" ON favorite_videos
   FOR ALL USING (true) WITH CHECK (true);
 `;
+

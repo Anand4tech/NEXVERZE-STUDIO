@@ -3,15 +3,21 @@ import { getAuth } from 'firebase/auth';
 import {
   initializeFirestore,
   getFirestore,
+  setLogLevel,
   doc,
-  getDocFromServer,
+  getDoc,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Use experimentalAutoDetectLongPolling: true to ensure Firestore works reliably in browser previews/iframes
-// without hanging or throwing 10-second backend connection errors.
+// Silence internal @firebase/firestore 10s offline/connection warnings in iframe preview environments
+try {
+  setLogLevel('silent');
+} catch {
+  // Ignore if setLogLevel is unavailable
+}
+
 let firestoreDb;
 try {
   firestoreDb = initializeFirestore(
@@ -76,23 +82,17 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  console.warn('Firestore Notice: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test connection on boot according to skill guidelines
+// Non-blocking connection validation
 export async function testConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    await getDoc(doc(db, 'test', 'connection'));
     return true;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firestore operating in offline cache mode.');
-    }
+  } catch {
     return false;
   }
 }
 
-if (typeof window !== 'undefined') {
-  testConnection().catch(() => {});
-}

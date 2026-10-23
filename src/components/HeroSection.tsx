@@ -31,6 +31,7 @@ import {
   Save,
   ZoomIn,
   ZoomOut,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   storeGalleryVideoBlob,
@@ -40,7 +41,7 @@ import {
 import { checkIsLivePreviewCreator } from './ShowcaseGallery';
 
 interface HeroSectionProps {
-  onOpenStudioWithMode: (mode: 'text' | 'image' | 'mobile-to-cinematic') => void;
+  onOpenStudioWithMode: (mode: 'text' | 'image' | 'mobile-to-cinematic' | 'watermark') => void;
   isStudioOpen: boolean;
   onRemixVideo?: (config?: {
     prompt?: string;
@@ -162,7 +163,52 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
   // Audio on/off state - Default audio is OFF (muted)
   const [isAudioOff, setIsAudioOff] = useState<boolean>(true);
+  const [volumeLevel, setVolumeLevel] = useState<number>(100);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isCleanVideoView, setIsCleanVideoView] = useState<boolean>(false);
+
+  // Touch & Gesture Feedback HUD state for mobile theater stage
+  const [gestureFeedback, setGestureFeedback] = useState<{
+    id: number;
+    type: 'play' | 'pause' | 'mute' | 'unmute' | 'volume';
+    label: string;
+    sublabel?: string;
+    x?: number;
+    y?: number;
+  } | null>(null);
+
+  const tapTimeoutRef = useRef<number | null>(null);
+  const lastTapTimeRef = useRef<number>(0);
+  const touchSwipeStartRef = useRef<{
+    x: number;
+    y: number;
+    startVolume: number;
+    isSwipingVolume: boolean;
+  } | null>(null);
+  const gestureHudTimerRef = useRef<number | null>(null);
+
+  const triggerGestureHud = (
+    type: 'play' | 'pause' | 'mute' | 'unmute' | 'volume',
+    label: string,
+    sublabel?: string,
+    x?: number,
+    y?: number
+  ) => {
+    if (gestureHudTimerRef.current) {
+      window.clearTimeout(gestureHudTimerRef.current);
+    }
+    setGestureFeedback({
+      id: Date.now(),
+      type,
+      label,
+      sublabel,
+      x,
+      y,
+    });
+    gestureHudTimerRef.current = window.setTimeout(() => {
+      setGestureFeedback(null);
+    }, 1150);
+  };
 
   // Loop video state - Default is ON (true)
   const [isAutoLoop, setIsAutoLoop] = useState<boolean>(() => {
@@ -409,6 +455,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     if (!video) return;
 
     video.muted = isAudioOff;
+    video.volume = Math.max(0, Math.min(1, volumeLevel / 100));
     const playSafely = () => {
       const playPromise = video.play();
       if (playPromise !== undefined) {
@@ -429,7 +476,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     return () => {
       video.removeEventListener('canplay', playSafely);
     };
-  }, [liveVideoSrc, isAudioOff]);
+  }, [liveVideoSrc, isAudioOff, volumeLevel]);
 
   // Sync edit modal state when opening
   useEffect(() => {
@@ -442,18 +489,155 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
     }
   }, [isEditModalOpen, previewConfig]);
 
-  // Audio Toggle (Default audio is OFF)
-  const toggleAudio = () => {
+  // Play / Pause Toggle with visual HUD feedback
+  const togglePlayPause = (tapX?: number, tapY?: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+          triggerGestureHud('play', 'Playing', 'Tap canvas to pause', tapX, tapY);
+        })
+        .catch(() => {
+          setIsPlaying(false);
+        });
+    } else {
+      video.pause();
+      setIsPlaying(false);
+      triggerGestureHud('pause', 'Paused', 'Tap canvas to play', tapX, tapY);
+    }
+  };
+
+  // Audio Toggle (Default audio is OFF) with visual HUD feedback
+  const toggleAudio = (tapX?: number, tapY?: number) => {
     const nextState = !isAudioOff;
+    const nextVol = !nextState && volumeLevel === 0 ? 100 : volumeLevel;
+    if (!nextState && volumeLevel === 0) {
+      setVolumeLevel(100);
+    }
     setIsAudioOff(nextState);
     if (videoRef.current) {
       videoRef.current.muted = nextState;
       if (!nextState) {
-        videoRef.current.volume = 1.0;
+        videoRef.current.volume = Math.max(0.1, nextVol / 100);
         videoRef.current.play().catch(() => {});
       }
     }
-    showToast(nextState ? '🔇 Audio Muted (OFF)' : '🔊 Audio Enabled (ON)');
+    triggerGestureHud(
+      nextState ? 'mute' : 'unmute',
+      nextState ? 'Audio Muted' : `Audio ON • ${nextVol}%`,
+      'Double-tap or swipe to adjust',
+      tapX,
+      tapY
+    );
+    showToast(nextState ? '🔇 Audio Muted (OFF)' : `🔊 Audio Enabled (${nextVol}%)`);
+  };
+
+  // Direct Volume Level change (from touch slider or horizontal swipe gesture)
+  const handleVolumeChange = (newVolume: number, showHud: boolean = true) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(newVolume)));
+    setVolumeLevel(clamped);
+    const muted = clamped === 0;
+    setIsAudioOff(muted);
+    if (videoRef.current) {
+      videoRef.current.volume = clamped / 100;
+      videoRef.current.muted = muted;
+      if (!muted && videoRef.current.paused && isPlaying) {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+    if (showHud) {
+      triggerGestureHud(
+        muted ? 'mute' : 'volume',
+        muted ? 'Audio Muted (0%)' : `Volume ${clamped}%`,
+        'Slide horizontally to tune audio'
+      );
+    }
+  };
+
+  // Canvas Touch / Click Gesture Handlers (Single-tap = Play/Pause, Double-tap = Audio Toggle, Horizontal Swipe = Volume)
+  const handleStageTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isCreatorMode) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, a, input, label, [data-no-canvas-gesture="true"]')) return;
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchSwipeStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        startVolume: isAudioOff ? 0 : volumeLevel,
+        isSwipingVolume: false,
+      };
+    }
+  };
+
+  const handleStageTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isCreatorMode || !touchSwipeStartRef.current || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchSwipeStartRef.current.x;
+    const deltaY = touch.clientY - touchSwipeStartRef.current.y;
+
+    // Activate horizontal volume swipe when horizontal movement clearly exceeds vertical scroll
+    if (!touchSwipeStartRef.current.isSwipingVolume) {
+      if (Math.abs(deltaX) > 28 && Math.abs(deltaX) > Math.abs(deltaY) * 1.6) {
+        touchSwipeStartRef.current.isSwipingVolume = true;
+      } else {
+        return;
+      }
+    }
+
+    if (touchSwipeStartRef.current.isSwipingVolume) {
+      const volumeDelta = Math.round(deltaX / 2.2);
+      const nextVolume = Math.max(0, Math.min(100, touchSwipeStartRef.current.startVolume + volumeDelta));
+      handleVolumeChange(nextVolume, true);
+    }
+  };
+
+  const handleStageTouchEnd = () => {
+    if (touchSwipeStartRef.current?.isSwipingVolume) {
+      // Suppress tap click if user just completed a volume swipe gesture
+      lastTapTimeRef.current = 0;
+      setTimeout(() => {
+        touchSwipeStartRef.current = null;
+      }, 60);
+      return;
+    }
+    touchSwipeStartRef.current = null;
+  };
+
+  const handleStageCanvasTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isCreatorMode) return;
+    if (touchSwipeStartRef.current?.isSwipingVolume) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, a, input, label, [data-no-canvas-gesture="true"]')) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tapX = e.clientX - rect.left;
+    const tapY = e.clientY - rect.top;
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 260;
+
+    if (now - lastTapTimeRef.current < DOUBLE_TAP_DELAY) {
+      // Double-tap detected -> Toggle Volume / Mute
+      if (tapTimeoutRef.current) {
+        window.clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      lastTapTimeRef.current = 0;
+      toggleAudio(tapX, tapY);
+    } else {
+      // Single-tap candidate -> Wait briefly to confirm not a double-tap, then toggle Play/Pause
+      lastTapTimeRef.current = now;
+      if (tapTimeoutRef.current) {
+        window.clearTimeout(tapTimeoutRef.current);
+      }
+      tapTimeoutRef.current = window.setTimeout(() => {
+        togglePlayPause(tapX, tapY);
+        tapTimeoutRef.current = null;
+      }, DOUBLE_TAP_DELAY);
+    }
   };
 
   // Change Aspect Ratio (9:16, 16:9, 1:1)
@@ -676,7 +860,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   };
 
   return (
-    <section className="relative pt-2 pb-6 max-w-7xl mx-auto">
+    <section className="relative -mt-4 sm:-mt-5 pt-0 pb-4 sm:pb-6 w-full max-w-full mx-auto">
+      {/* Background ambient lighting */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-80 bg-gradient-to-r from-purple-600/20 via-fuchsia-600/20 to-pink-600/20 blur-3xl rounded-full pointer-events-none" />
+
       {/* Global Toast Notice */}
       {toastNotice && (
         <div className="fixed bottom-6 right-6 z-50 p-3.5 rounded-2xl bg-[#151128] border border-purple-500/50 text-white text-xs mono shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
@@ -686,25 +873,40 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* UNIFIED RUNWAY & LUMA STYLE CINEMATIC HERO THEATER STAGE                  */}
-      {/* Auto-looping background video canvas with dual-layer cinematic scrims,    */}
-      {/* floating HUD, tap-to-play hover indicator, and overlay content stack.     */}
+      {/* OPTION A: RUNWAY-STYLE ROUNDED CINEMA FRAME HERO & PREVIEW PANEL          */}
+      {/* Home Page Preview Panel video autoplays in the background of the texts    */}
+      {/* and buttons (Text to Video, Image to Video, Mobile to Cinematic,          */}
+      {/* Watermark Studio). Optimized for mobile with touch gesture controls.      */}
       {/* ========================================================================= */}
-      <div
-        onPointerDown={isCreatorMode ? handleFramingPointerDown : undefined}
-        onPointerMove={isCreatorMode ? handleFramingPointerMove : undefined}
-        onPointerUp={isCreatorMode ? handleFramingPointerUp : undefined}
-        onPointerCancel={isCreatorMode ? handleFramingPointerUp : undefined}
-        className={`relative w-full rounded-3xl sm:rounded-[2.5rem] overflow-hidden border border-purple-500/30 bg-[#070512] shadow-[0_0_80px_rgba(168,85,247,0.22)] min-h-[580px] sm:min-h-[640px] md:min-h-[700px] flex flex-col justify-between select-none transition-all ${
-          isCreatorMode
-            ? isDraggingFraming
-              ? 'cursor-grabbing ring-2 ring-amber-400'
-              : 'cursor-grab hover:ring-1 hover:ring-amber-400/50'
-            : ''
-        }`}
-      >
-        {/* 1. AUTO-LOOPING BACKGROUND VIDEO CANVAS (Runway & Luma Style) */}
-        <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none select-none z-0">
+      <div className="text-center pb-2">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/45 backdrop-blur-md border border-purple-400/40 text-xs sm:text-sm font-extrabold mono uppercase tracking-wider shadow-lg">
+          <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
+          <span className="bg-gradient-to-r from-amber-300 via-fuchsia-400 to-cyan-400 bg-clip-text text-transparent">
+            Next-Gen Photorealistic AI Video Studio
+          </span>
+        </div>
+      </div>
+
+      <div className="relative w-full rounded-3xl overflow-hidden border border-purple-500/35 bg-[#0c0a1a] shadow-[0_0_60px_rgba(168,85,247,0.22)] p-2.5 sm:p-4 space-y-3">
+        {/* Video Viewport Container (Runway-Style Rounded Cinema Frame) */}
+        <div
+          onClick={!isCreatorMode ? handleStageCanvasTap : undefined}
+          onTouchStart={!isCreatorMode ? handleStageTouchStart : undefined}
+          onTouchMove={!isCreatorMode ? handleStageTouchMove : undefined}
+          onTouchEnd={!isCreatorMode ? handleStageTouchEnd : undefined}
+          onPointerDown={isCreatorMode ? handleFramingPointerDown : undefined}
+          onPointerMove={isCreatorMode ? handleFramingPointerMove : undefined}
+          onPointerUp={isCreatorMode ? handleFramingPointerUp : undefined}
+          onPointerCancel={isCreatorMode ? handleFramingPointerUp : undefined}
+          className={`relative w-full min-h-[540px] sm:min-h-[620px] lg:min-h-[680px] flex items-center justify-center overflow-hidden rounded-2xl bg-black select-none transition-all ${
+            isCreatorMode
+              ? isDraggingFraming
+                ? 'touch-none cursor-grabbing ring-2 ring-amber-400 scale-[1.002]'
+                : 'touch-none cursor-grab hover:ring-1 hover:ring-amber-400/50'
+              : 'touch-pan-y cursor-pointer'
+          }`}
+        >
+          {/* Auto-Playing Background Preview Video */}
           <video
             ref={videoRef}
             key={liveVideoSrc}
@@ -725,13 +927,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               transformOrigin: isCreatorMode
                 ? `${uploadPosX}% ${uploadPosY}%`
                 : `${previewConfig.objectPositionX ?? 50}% ${previewConfig.objectPositionY ?? 50}%`,
+              filter: 'none',
               userSelect: 'none',
             }}
-            className="w-full h-full object-cover pointer-events-none transition-transform duration-300"
+            className="absolute inset-0 w-full h-full opacity-100 brightness-100 contrast-100 saturate-100 pointer-events-none transition-transform duration-75"
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
             onError={(e) => {
-              console.warn('Hero preview video failed, reverting to fallback reference:', liveVideoSrc);
+              console.warn('Hero preview video failed, reverting to default reference:', liveVideoSrc);
               const target = e.target as HTMLVideoElement;
               if (liveVideoSrc !== DEFAULT_HOME_PREVIEW.videoUrl) {
                 setLiveVideoSrc(DEFAULT_HOME_PREVIEW.videoUrl);
@@ -746,215 +949,492 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           >
             <source src={liveVideoSrc} type="video/mp4" />
             <source src={DEFAULT_HOME_PREVIEW.videoUrl} type="video/mp4" />
-            <source src="/videos/home-page-preview-panel-video.mp4" type="video/mp4" />
             <source src="/videos/sample-1.mp4" type="video/mp4" />
           </video>
-        </div>
 
-        {/* 2. DUAL-LAYER CINEMATIC GRADIENT SCRIMS */}
-        {/* Layer 1 (Linear vertical gradient): Balances brightness between top HUD and bottom command bar dock for deep cinematic contrast */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#06040e]/90 via-[#06040e]/45 to-[#06040e]/95 pointer-events-none z-[1]" />
+          {/* Touch Coordinate Ripple & Center Gesture HUD Feedback Overlay */}
+          {gestureFeedback && (
+            <div
+              key={gestureFeedback.id}
+              className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center"
+            >
+              {/* Localized Tap Ripple Ring where finger touched the canvas */}
+              {typeof gestureFeedback.x === 'number' && typeof gestureFeedback.y === 'number' && (
+                <span
+                  style={{
+                    left: `${gestureFeedback.x}px`,
+                    top: `${gestureFeedback.y}px`,
+                  }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full border-2 border-purple-400/70 bg-purple-500/20 animate-ping"
+                />
+              )}
 
-        {/* Layer 2 (Radial focal vignette): Preserves vivid motion in the center subject while vignette-darkening outer margins to keep all typography razor-sharp */}
-        <div className="absolute inset-0 [background:radial-gradient(ellipse_at_center,_transparent_20%,_rgba(6,4,14,0.45)_55%,_rgba(6,4,14,0.92)_100%)] pointer-events-none z-[2]" />
+              {/* Center Theater Stage Gesture Status HUD */}
+              <div className="px-6 py-5 rounded-3xl bg-black/80 backdrop-blur-xl border border-white/20 shadow-[0_0_50px_rgba(168,85,247,0.45)] flex flex-col items-center gap-2.5 animate-in fade-in zoom-in-95 duration-150">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600/40 to-pink-600/40 border border-purple-400/50 flex items-center justify-center text-white shadow-inner">
+                  {gestureFeedback.type === 'play' && <Play className="w-8 h-8 fill-white text-white ml-0.5" />}
+                  {gestureFeedback.type === 'pause' && <Pause className="w-8 h-8 fill-white text-white" />}
+                  {gestureFeedback.type === 'mute' && <VolumeX className="w-8 h-8 text-rose-400" />}
+                  {(gestureFeedback.type === 'unmute' || gestureFeedback.type === 'volume') && (
+                    <Volume2 className="w-8 h-8 text-emerald-400" />
+                  )}
+                </div>
+                <div className="text-center space-y-0.5">
+                  <div className="text-sm font-extrabold text-white tracking-wide mono">
+                    {gestureFeedback.label}
+                  </div>
+                  {gestureFeedback.sublabel && (
+                    <div className="text-[11px] text-white/65 mono">
+                      {gestureFeedback.sublabel}
+                    </div>
+                  )}
+                </div>
+                {(gestureFeedback.type === 'volume' || gestureFeedback.type === 'unmute' || gestureFeedback.type === 'mute') && (
+                  <div className="w-36 h-1.5 rounded-full bg-white/15 overflow-hidden mt-0.5">
+                    <div
+                      className={`h-full transition-all duration-100 rounded-full ${
+                        isAudioOff ? 'w-0 bg-rose-400' : 'bg-gradient-to-r from-emerald-400 to-cyan-400'
+                      }`}
+                      style={{ width: `${isAudioOff ? 0 : volumeLevel}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-        {/* Background ambient cosmic glow flare */}
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[720px] h-[360px] bg-gradient-to-r from-purple-600/20 via-fuchsia-600/15 to-pink-600/20 blur-[100px] rounded-full pointer-events-none z-[3]" />
+          {/* Top Overlay Controls: Ergonomic 44px+ Touch Hitboxes for Play/Pause & Volume */}
+          <div className="absolute top-3 left-3 right-3 sm:top-3.5 sm:left-3.5 sm:right-3.5 flex items-center justify-between z-20 pointer-events-none">
+            <div className="flex items-center gap-2">
+              {/* Play / Pause Toggle Button (Min 44px touch target on mobile) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePlayPause();
+                }}
+                aria-label={isPlaying ? 'Pause background video' : 'Play background video'}
+                className="pointer-events-auto min-h-[44px] min-w-[44px] sm:min-h-[36px] px-3.5 py-2 sm:px-3 sm:py-1.5 rounded-full bg-black/75 hover:bg-black active:scale-95 text-white text-xs sm:text-[11px] font-bold mono border border-white/20 backdrop-blur-md flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
+                title={isPlaying ? 'Pause background video (or single-tap canvas)' : 'Play background video (or single-tap canvas)'}
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause className="w-4 h-4 sm:w-3.5 sm:h-3.5 fill-white text-white shrink-0" />
+                    <span className="text-white/90 whitespace-nowrap">Playing</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 sm:w-3.5 sm:h-3.5 fill-white text-white shrink-0" />
+                    <span className="text-white/90 whitespace-nowrap">Paused</span>
+                  </>
+                )}
+              </button>
 
-        {/* 3. TAP-TO-PLAY/PAUSE FLOATING INDICATOR ON VIDEO HOVER */}
-        {!isCreatorMode && (
-          <button
-            type="button"
-            onClick={() => {
-              if (videoRef.current) {
-                if (videoRef.current.paused) {
-                  videoRef.current
-                    .play()
-                    .then(() => setIsPlaying(true))
-                    .catch(() => setIsPlaying(false));
-                } else {
-                  videoRef.current.pause();
-                  setIsPlaying(false);
-                }
-              }
-            }}
-            className="absolute inset-0 w-full h-full z-10 flex items-center justify-center cursor-pointer pointer-events-auto bg-transparent group focus:outline-none"
-            aria-label={isPlaying ? 'Pause background video' : 'Play background video'}
-          >
-            <div className="w-16 h-16 rounded-full bg-black/60 group-hover:bg-black/80 backdrop-blur-md border border-white/20 text-white flex items-center justify-center shadow-2xl transition-all duration-300 transform scale-75 group-hover:scale-100 opacity-0 group-hover:opacity-100">
-              {isPlaying ? (
-                <Pause className="w-6 h-6 fill-white" />
-              ) : (
-                <Play className="w-6 h-6 fill-white ml-0.5" />
+              {/* Toggle Clean Video View (Hide/Show Center Text Overlay) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCleanVideoView((prev) => !prev);
+                }}
+                aria-label={isCleanVideoView ? 'Show text and mode buttons' : 'View unobstructed original video'}
+                className="pointer-events-auto min-h-[44px] sm:min-h-[36px] px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-full bg-black/55 hover:bg-black/80 active:scale-95 text-white text-xs sm:text-[11px] font-bold mono border border-white/20 backdrop-blur-md flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-lg"
+                title={isCleanVideoView ? 'Show Hero Text & Mode Buttons' : 'Hide Text Overlay for Full Video View'}
+              >
+                {isCleanVideoView ? (
+                  <>
+                    <Eye className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-purple-300 shrink-0" />
+                    <span className="hidden xs:inline text-white/90 whitespace-nowrap">Show Text</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-cyan-300 shrink-0" />
+                    <span className="hidden xs:inline text-white/90 whitespace-nowrap">Clean View</span>
+                  </>
+                )}
+              </button>
+
+              {/* Aspect Ratio Badge: ONLY shown to creator, NOT shown to users */}
+              {isCreatorMode && (
+                <span className="px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md text-amber-300 text-[10px] font-bold mono border border-amber-400/30 uppercase flex items-center gap-1">
+                  <Move className="w-3 h-3 text-amber-400" />
+                  <span>{previewConfig.aspectRatio} (Creator Drag Enabled)</span>
+                </span>
               )}
             </div>
-          </button>
-        )}
 
-        {/* 4. FLOATING TOP HUD & AUDIO TOGGLE */}
-        <div className="relative top-0 left-0 right-0 p-4 sm:p-6 flex items-center justify-between z-30 pointer-events-none">
-          {/* Master quality indicator (4K Master Theater • 60 FPS) */}
-          <div className="pointer-events-auto flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white/90 text-[11px] sm:text-xs font-mono shadow-lg transition-colors">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="font-semibold tracking-wide">4K Master Theater • 60 FPS</span>
-          </div>
-
-          {/* Translucent glass Audio: OFF / Audio: ON toggle pinned at the top-right */}
-          <div className="pointer-events-auto flex items-center gap-2">
+            {/* Audio on/off toggle badge on video (Min 44px touch target on mobile) */}
             <button
               type="button"
-              onClick={toggleAudio}
-              className={`px-3.5 py-1.5 rounded-full border text-xs font-bold font-mono backdrop-blur-md flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ${
-                isAudioOff
-                  ? 'bg-black/60 hover:bg-black/80 border-white/15 text-white/85 hover:text-white hover:border-purple-500/40'
-                  : 'bg-emerald-500/25 hover:bg-emerald-500/35 border-emerald-400/60 text-emerald-300 shadow-emerald-950/50'
-              }`}
-              title={isAudioOff ? 'Audio: OFF (Click to turn audio ON)' : 'Audio: ON (Click to turn audio OFF)'}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleAudio();
+              }}
+              aria-label={isAudioOff ? 'Unmute background video audio' : 'Mute background video audio'}
+              className="pointer-events-auto min-h-[44px] min-w-[44px] sm:min-h-[36px] px-3.5 py-2 sm:px-3 sm:py-1.5 rounded-full bg-black/55 hover:bg-black/80 active:scale-95 text-white text-xs sm:text-[11px] font-bold mono border border-white/20 backdrop-blur-md flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg"
+              title={isAudioOff ? 'Tap to turn audio ON (or double-tap canvas)' : 'Tap to turn audio OFF (or double-tap canvas)'}
             >
               {isAudioOff ? (
                 <>
-                  <VolumeX className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Audio: OFF</span>
+                  <VolumeX className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-rose-400 shrink-0" />
+                  <span className="text-white/90 whitespace-nowrap">Audio: OFF</span>
                 </>
               ) : (
                 <>
-                  <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                  <span className="text-emerald-300">Audio: ON</span>
+                  <Volume2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
+                  <span className="text-emerald-300 whitespace-nowrap tabular-nums">
+                    Audio: {volumeLevel}%
+                  </span>
                 </>
               )}
             </button>
+          </div>
 
-            {/* Creator Mode toggle (Discreet icon shown only to creator) */}
-            {isLivePreview && (
+          {/* BOTTOM HERO CONTENT OVERLAY ON THE CINEMA FRAME VIDEO */}
+          <div
+            className={`relative z-10 self-end text-center space-y-3 max-w-4xl mx-auto px-4 sm:px-8 pt-4 pb-16 sm:pb-16 transition-all duration-300 ${
+              isCleanVideoView ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100'
+            }`}
+          >
+            {/* Big CTA Buttons (Clicking each opens ONLY its respective workspace) */}
+            <div
+              data-no-canvas-gesture="true"
+              className="flex flex-wrap items-center justify-center gap-3 sm:gap-4"
+            >
               <button
                 type="button"
-                onClick={toggleCreatorMode}
-                className={`p-1.5 rounded-full border backdrop-blur-md text-xs font-mono transition-colors cursor-pointer ${
-                  isCreatorMode
-                    ? 'bg-amber-500/20 border-amber-400/60 text-amber-300'
-                    : 'bg-black/50 border-white/10 text-white/40 hover:text-amber-300'
-                }`}
-                title={isCreatorMode ? 'Creator Controls Active' : 'Toggle Creator Controls'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenStudioWithMode('text');
+                }}
+                className="w-full sm:w-auto min-h-[48px] font-extrabold py-4 px-7 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-2xl shadow-purple-900/60 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-purple-300/50 whitespace-nowrap"
               >
-                <Sliders className="w-3.5 h-3.5" />
+                <Wand2 className="w-5 h-5 text-amber-300 shrink-0" />
+                <span>✨ Text to Video</span>
+                <ArrowRight className="w-4 h-4 text-white/80 shrink-0" />
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenStudioWithMode('image');
+                }}
+                className="w-full sm:w-auto min-h-[48px] font-extrabold py-4 px-7 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 text-white shadow-2xl shadow-indigo-900/60 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-purple-300/50 whitespace-nowrap"
+              >
+                <ImageIcon className="w-5 h-5 text-cyan-300 shrink-0" />
+                <span>🖼️ Image to Video</span>
+                <ArrowRight className="w-4 h-4 text-white/80 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenStudioWithMode('mobile-to-cinematic');
+                }}
+                className="w-full sm:w-auto min-h-[48px] font-extrabold py-4 px-7 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-600 hover:from-amber-300 hover:to-pink-500 text-black shadow-2xl shadow-amber-900/60 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer ring-1 ring-amber-300/70 whitespace-nowrap"
+              >
+                <Sparkles className="w-5 h-5 text-black shrink-0" />
+                <span>🎥 Mobile to Cinematic</span>
+                <ArrowRight className="w-4 h-4 text-black/80 shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenStudioWithMode('watermark');
+                }}
+                className="w-full sm:w-auto min-h-[48px] font-extrabold py-4 px-6 rounded-2xl bg-black/70 hover:bg-purple-950/80 backdrop-blur-md text-purple-100 border border-purple-400/50 shadow-2xl flex items-center justify-center gap-2 text-sm sm:text-base transition-all active:scale-[0.98] cursor-pointer whitespace-nowrap"
+              >
+                <ShieldCheck className="w-5 h-5 text-cyan-300 shrink-0" />
+                <span>🛡️ Watermark Studio</span>
+                <ArrowRight className="w-4 h-4 text-purple-200/80 shrink-0" />
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* 5. OVERLAY CONTENT STACK (Directly Over Video Canvas) */}
-        <div className="relative z-20 pointer-events-none flex flex-col items-center justify-center text-center px-4 sm:px-8 py-12 sm:py-16 md:py-20 my-auto space-y-6 max-w-4xl mx-auto">
-          {/* Kicker Badge: ✨ Next-Gen Photorealistic AI Video Studio */}
-          <div className="pointer-events-auto inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-purple-400/40 text-purple-200 text-xs font-bold font-mono uppercase tracking-wider shadow-xl">
-            <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300 animate-pulse" />
-            <span>Next-Gen Photorealistic AI Video Studio</span>
-          </div>
-
-          {/* Main Headline: Turn Any Prompt & Photo Into Cinematic 4K AI Videos with high-impact gradient styling */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.08] drop-shadow-[0_2px_14px_rgba(0,0,0,0.85)]">
-            Turn Any Prompt & Photo Into <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-purple-400 via-fuchsia-300 to-pink-400 bg-clip-text text-transparent font-black drop-shadow-[0_0_45px_rgba(217,70,239,0.4)]">
-              Cinematic 4K AI Videos
-            </span>
-          </h1>
-
-          {/* Subtitle: Create viral Instagram Reels & Shorts in seconds. Powered by Luma Fast, Kling Pro & Veo Ultra with 10 Indian Languages & AI Voiceover synthesis. */}
-          <p className="text-sm sm:text-base md:text-lg text-purple-100/90 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-            Create viral Instagram Reels & Shorts in seconds. Powered by Luma Fast, Kling Pro & Veo Ultra with 10 Indian Languages & AI Voiceover synthesis.
-          </p>
-
-          {/* 3 Action CTAs: Text to Video, Image to Video, Mobile to Cinematic */}
-          <div className="pointer-events-auto flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => onOpenStudioWithMode('text')}
-              className="w-full sm:w-auto font-extrabold py-3.5 sm:py-4 px-6 sm:px-7 rounded-2xl bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-xl shadow-purple-600/40 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ring-1 ring-purple-400/40 backdrop-blur-sm"
+          {/* PUBLIC MOBILE THUMB-ZONE GESTURE DOCK (Bottom of Hero Theater Stage) */}
+          {!isCreatorMode && (
+            <div
+              data-no-canvas-gesture="true"
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-3.5 sm:left-4 sm:right-4 flex items-center justify-between gap-2 z-20"
             >
-              <Wand2 className="w-5 h-5 text-amber-300" />
-              <span>✨ Text to Video</span>
-              <ArrowRight className="w-4 h-4 text-white/80" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onOpenStudioWithMode('image')}
-              className="w-full sm:w-auto font-extrabold py-3.5 sm:py-4 px-6 sm:px-7 rounded-2xl bg-gradient-to-r from-purple-700 via-indigo-600 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-500 text-white shadow-xl shadow-purple-600/40 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ring-1 ring-purple-400/40 backdrop-blur-sm"
-            >
-              <ImageIcon className="w-5 h-5 text-cyan-300" />
-              <span>🖼️ Image to Video</span>
-              <ArrowRight className="w-4 h-4 text-white/80" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onOpenStudioWithMode('mobile-to-cinematic')}
-              className="w-full sm:w-auto font-extrabold py-3.5 sm:py-4 px-6 sm:px-7 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-600 hover:from-amber-300 hover:to-pink-500 text-black shadow-xl shadow-amber-600/40 flex items-center justify-center gap-2.5 text-sm sm:text-base transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ring-1 ring-amber-300/60"
-            >
-              <Sparkles className="w-5 h-5 text-black" />
-              <span>🎥 Mobile to Cinematic</span>
-              <ArrowRight className="w-4 h-4 text-black/80" />
-            </button>
-          </div>
-
-          {/* Spec & Trial Badges: ⚡ Instant ₹99 Trial Pack (150cr) • 10 Major Indian Languages • 4K Quality Lock Engine */}
-          <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-3 sm:gap-6 pt-1 text-xs font-mono text-white/85">
-            <span className="flex items-center gap-1.5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-amber-300 font-semibold">⚡ Instant ₹99 Trial Pack (150cr)</span>
-            </span>
-            <span className="text-white/40 hidden sm:inline">•</span>
-            <span className="flex items-center gap-1.5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>10 Major Indian Languages</span>
-            </span>
-            <span className="text-white/40 hidden sm:inline">•</span>
-            <span className="flex items-center gap-1.5 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>4K Quality Lock Engine</span>
-            </span>
-          </div>
-        </div>
-
-        {/* 6. CREATOR CONTROLS DOCK (ONLY visible when Creator Mode is active) */}
-        {isCreatorMode && (
-          <div className="relative z-30 p-4 border-t border-amber-500/30 bg-black/80 backdrop-blur-xl space-y-3">
-            <div className="flex items-center justify-between text-[11px] mono text-amber-300">
-              <span className="font-bold flex items-center gap-1.5">
-                <Move className="w-3.5 h-3.5 text-amber-400" />
-                <span>👑 Creator Mode: Drag Video to Nudge Framing ({uploadPosX}%, {uploadPosY}%)</span>
-              </span>
-              <div className="flex items-center gap-2">
+              {/* Left: Quick Touch Play/Pause + Volume Scrubber Pill */}
+              <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-2xl bg-black/75 backdrop-blur-md border border-white/15 shadow-lg">
                 <button
                   type="button"
-                  onClick={handleSavePositionDirectly}
-                  className="px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-black text-[10px] mono flex items-center gap-1 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePlayPause();
+                  }}
+                  aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                  className="min-h-[38px] min-w-[38px] rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition-all cursor-pointer"
+                  title={isPlaying ? 'Pause video' : 'Play video'}
                 >
-                  <Save className="w-3 h-3 text-black" />
-                  <span>Save Framing</span>
+                  {isPlaying ? (
+                    <Pause className="w-4 h-4 fill-white text-white" />
+                  ) : (
+                    <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                  )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleAudio();
+                  }}
+                  aria-label={isAudioOff ? 'Unmute audio' : 'Mute audio'}
+                  className="min-h-[38px] min-w-[38px] rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white transition-all cursor-pointer"
+                  title={isAudioOff ? 'Unmute audio' : 'Mute audio'}
+                >
+                  {isAudioOff ? (
+                    <VolumeX className="w-4 h-4 text-rose-400" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 text-emerald-400" />
+                  )}
+                </button>
+
+                {/* Touch-friendly inline volume slider */}
+                <div className="flex items-center gap-2 pl-1 pr-1.5">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    aria-label="Background video volume"
+                    value={isAudioOff ? 0 : volumeLevel}
+                    onChange={(e) => handleVolumeChange(Number(e.target.value), true)}
+                    className="w-20 sm:w-24 h-1.5 accent-emerald-400 bg-white/20 rounded-lg cursor-pointer"
+                  />
+                  <span className="text-[11px] font-mono tabular-nums text-white/80 min-w-[32px] text-right">
+                    {isAudioOff ? 'OFF' : `${volumeLevel}%`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right: Interactive Touch Gesture Hint */}
+              <div className="hidden xs:flex sm:flex items-center gap-2 px-3 py-2 rounded-2xl bg-black/65 backdrop-blur-md border border-white/10 text-[11px] text-white/75 mono pointer-events-none">
+                <span>Tap: Play/Pause</span>
+                <span aria-hidden="true" className="text-white/35">·</span>
+                <span>2× Tap: Audio</span>
+                <span aria-hidden="true" className="hidden md:inline text-white/35">·</span>
+                <span className="hidden md:inline">Swipe ↔: Volume</span>
+              </div>
+            </div>
+          )}
+
+          {/* CREATOR MODE ONLY: Floating Drag Movement Indicator & Direct Save Badge */}
+          {isCreatorMode && (
+            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between z-20 pointer-events-none gap-2">
+              <span className="px-3 py-1 rounded-full bg-black/85 backdrop-blur-md text-amber-300 text-[10px] font-bold mono border border-amber-400/50 flex items-center gap-1.5 shadow-lg">
+                <Move className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                <span>Drag: ↕ Up/Down • ↔ Left/Right ({uploadPosX}%, {uploadPosY}%)</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSavePositionDirectly();
+                }}
+                className="pointer-events-auto px-3 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-black font-black text-[10px] mono border border-emerald-300 shadow-lg flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                title="Save video movement position"
+              >
+                <Save className="w-3 h-3 text-black" />
+                <span>Save Movement</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================================= */}
+        {/* CONTROL BAR:                                                              */}
+        {/* FOR REGULAR USERS: Ergonomic Play/Pause + Audio On/Off + Gesture Summary  */}
+        {/* FOR CREATOR ('me'): Available when Creator Mode is toggled                */}
+        {/* ========================================================================= */}
+        {!isCreatorMode ? (
+          /* ========================================================================= */
+          /* 1. PUBLIC USER VIEW: Ergonomic Touch Controls & Audio On/Off              */
+          /* ========================================================================= */
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#1f1a3a]">
+            <div className="flex items-center gap-2">
+              {/* Play / Pause Touch Button */}
+              <button
+                type="button"
+                onClick={() => togglePlayPause()}
+                className="min-h-[44px] px-4 py-2 rounded-xl border border-[#2b2548] bg-[#141026] hover:border-purple-500/40 text-white/90 hover:text-white text-xs font-bold mono flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95 whitespace-nowrap"
+                title="Toggle background video playback"
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause className="w-4 h-4 text-purple-400 fill-purple-400 shrink-0" />
+                    <span>Pause Stage</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 text-emerald-400 fill-emerald-400 shrink-0" />
+                    <span>Play Stage</span>
+                  </>
+                )}
+              </button>
+
+              {/* Audio On/Off (Default: OFF) */}
+              <button
+                type="button"
+                onClick={() => toggleAudio()}
+                className={`min-h-[44px] px-4 py-2 rounded-xl border text-xs font-bold mono flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95 whitespace-nowrap ${
+                  isAudioOff
+                    ? 'bg-[#141026] border-[#2b2548] text-white/80 hover:text-white hover:border-purple-500/40'
+                    : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 shadow-emerald-950/40'
+                }`}
+                title="Toggle audio sound (default is off)"
+              >
+                {isAudioOff ? (
+                  <>
+                    <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Audio: OFF</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="tabular-nums">Audio: ON ({volumeLevel}%)</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] mono text-white/50 sm:hidden">
+                Tap stage: Play/Pause · 2× Tap: Audio
+              </span>
+
+              {/* Discreet Creator toggle (ONLY shown to creator in live preview) */}
+              {isLivePreview && (
                 <button
                   type="button"
                   onClick={toggleCreatorMode}
-                  className="text-white/60 hover:text-white underline text-[10px] cursor-pointer"
+                  className="min-h-[36px] text-[10px] mono text-white/20 hover:text-amber-400/80 px-2 py-1 rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Toggle Creator Controls (Show to Me)"
                 >
-                  Exit Creator View
+                  <EyeOff className="w-3 h-3" />
+                  <span className="hidden sm:inline">Creator</span>
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* ========================================================================= */
+          /* 2. CREATOR VIEW (SHOW TO ME): Creator Controls Toolbar                    */
+          /* ========================================================================= */
+          <div className="space-y-3 pt-1 border-t border-[#1f1a3a]">
+            <div className="flex items-center justify-between text-[11px] mono text-amber-300/80 bg-amber-500/10 px-3 py-1 rounded-xl border border-amber-400/20">
+              <span className="font-bold flex items-center gap-1.5">
+                👑 Creator Controls (Show to Me)
+              </span>
+              <button
+                type="button"
+                onClick={toggleCreatorMode}
+                className="text-white/60 hover:text-white underline text-[10px] flex items-center gap-1 cursor-pointer"
+              >
+                <Eye className="w-3 h-3 text-amber-400" />
+                <span>Switch to User View</span>
+              </button>
+            </div>
+
+            {/* Interactive Video Framing & Movement Toolbar (ONLY shown in Creator Mode) */}
+            <div className="p-2.5 rounded-2xl bg-[#141028] border border-amber-500/30 flex flex-wrap items-center justify-between gap-2 text-xs mono">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-300 font-bold flex items-center gap-1 text-[11px]">
+                  <Move className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Nudge Position:</span>
+                </span>
+                <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => nudgeFraming('left')}
+                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    title="Nudge Left"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeFraming('right')}
+                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    title="Nudge Right"
+                  >
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeFraming('up')}
+                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    title="Nudge Up"
+                  >
+                    <ArrowUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => nudgeFraming('down')}
+                    className="p-1 rounded-lg bg-white/5 hover:bg-amber-500/20 text-white hover:text-amber-300 transition-colors cursor-pointer"
+                    title="Nudge Down"
+                  >
+                    <ArrowDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={resetFraming}
+                  className="px-2 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-[10px] flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Reset position to 50% Center"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset</span>
+                </button>
+
+                {/* Auto-Loop Checkbox */}
+                <label className="flex items-center gap-1.5 text-[10px] text-amber-300 font-bold cursor-pointer hover:text-white pl-2 border-l border-white/10">
+                  <input
+                    type="checkbox"
+                    checked={isAutoLoop}
+                    onChange={(e) => setIsAutoLoop(e.target.checked)}
+                    className="w-3 h-3 rounded border-amber-500/30 bg-black/40 text-amber-500 focus:ring-amber-500"
+                  />
+                  <span>Loop</span>
+                </label>
+              </div>
+
+              {/* Save Movement Button */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-white/50">
+                  Pos: {uploadPosX}%, {uploadPosY}%
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSavePositionDirectly}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black text-xs font-black mono flex items-center gap-1.5 shadow-md shadow-emerald-950/50 transition-all active:scale-95 cursor-pointer"
+                  title="Save current video position and movement"
+                >
+                  <Save className="w-3.5 h-3.5 text-black" />
+                  <span>Save Movement</span>
                 </button>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2.5">
-              {/* Aspect Ratio Format Buttons */}
+              {/* Format Buttons: 9:16, 16:9, 1:1 */}
               <div className="flex items-center gap-1.5 bg-[#141026] p-1 rounded-2xl border border-[#2b2548]">
                 <button
                   type="button"
                   onClick={() => handleSelectAspectRatio('9:16')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer ${
                     previewConfig.aspectRatio === '9:16'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-950/60'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <Smartphone className="w-3.5 h-3.5" />
@@ -966,8 +1446,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   onClick={() => handleSelectAspectRatio('16:9')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer ${
                     previewConfig.aspectRatio === '16:9'
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-purple-950/60'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <Tv className="w-3.5 h-3.5" />
@@ -979,8 +1459,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                   onClick={() => handleSelectAspectRatio('1:1')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer ${
                     previewConfig.aspectRatio === '1:1'
-                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white'
-                      : 'text-white/60 hover:text-white'
+                      ? 'bg-gradient-to-r from-purple-600 to-cyan-600 text-white shadow-md shadow-purple-950/60'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <Square className="w-3.5 h-3.5" />
@@ -988,8 +1468,33 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 </button>
               </div>
 
-              {/* Creator Action Buttons */}
+              {/* Action Buttons: Audio On/Off, Upload & Replace, Remix, Edit */}
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Audio On/Off (Default: OFF) */}
+                <button
+                  type="button"
+                  onClick={() => toggleAudio()}
+                  className={`px-3 py-2 rounded-xl border text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
+                    isAudioOff
+                      ? 'bg-[#141026] border-[#2b2548] text-white/70 hover:text-white hover:border-purple-500/40'
+                      : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                  }`}
+                  title="Toggle audio sound (default is off)"
+                >
+                  {isAudioOff ? (
+                    <>
+                      <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Audio: Off</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Audio: On</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Upload and Replace Video */}
                 <button
                   type="button"
                   onClick={() => {
@@ -1003,25 +1508,30 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                     setUploadZoom(previewConfig.zoomScale ?? 1);
                     setIsUploadModalOpen(true);
                   }}
-                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-black mono flex items-center gap-1.5 cursor-pointer shadow-md"
+                  className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-black mono flex items-center gap-1.5 shadow-md shadow-amber-950/40 transition-all active:scale-95 cursor-pointer"
+                  title="Upload and replace this preview video"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload & Replace Video</span>
                 </button>
 
+                {/* Remix */}
                 <button
                   type="button"
                   onClick={handleRemix}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-bold mono flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/40 text-purple-200 text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  title="Remix prompt into Studio"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-purple-400" />
                   <span>Remix</span>
                 </button>
 
+                {/* Edit Button (decide 9:16, 16:9, 1:1 and save video) */}
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}
-                  className="px-3 py-1.5 rounded-xl bg-[#18142c] hover:bg-purple-900/30 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold mono flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-2 rounded-xl bg-[#18142c] hover:bg-purple-900/30 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-bold mono flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                  title="Edit video options: decide 9:16, 16:9, 1:1 and save video"
                 >
                   <Sliders className="w-3.5 h-3.5 text-purple-400" />
                   <span>Edit</span>
@@ -1030,6 +1540,43 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </div>
           </div>
         )}
+      </div>
+
+      <div className="text-center space-y-3 max-w-4xl mx-auto px-4 sm:px-8 pt-6 pb-2">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)] [text-shadow:0_2px_12px_rgba(0,0,0,0.9)]">
+          Turn Any Prompt & Photo Into <br className="hidden sm:inline" />
+          <span className="bg-gradient-to-r from-purple-200 via-fuchsia-200 to-pink-200 bg-clip-text text-transparent font-black drop-shadow-[0_4px_20px_rgba(0,0,0,0.95)]">
+            Cinematic 4K AI Videos
+          </span>
+        </h1>
+
+        <p className="text-sm sm:text-base md:text-lg text-white max-w-2xl mx-auto font-semibold drop-shadow-[0_2px_12px_rgba(0,0,0,0.95)] [text-shadow:0_2px_10px_rgba(0,0,0,0.95)]">
+          Create viral Instagram Reels & Shorts in seconds. Powered by Luma Fast, Kling Pro & Veo Ultra with 10 Indian Languages & AI Voiceover synthesis.
+        </p>
+
+        {/* Feature Highlights (Clean Unboxed Metadata with Typographic Separators) */}
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 pt-2 text-xs sm:text-sm font-extrabold mono drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-pink-400 bg-clip-text text-transparent">
+              Instant ₹99 Trial Pack (150cr)
+            </span>
+          </span>
+          <span aria-hidden="true" className="text-white/40">·</span>
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="bg-gradient-to-r from-fuchsia-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+              10 Major Indian Languages
+            </span>
+          </span>
+          <span aria-hidden="true" className="text-white/40">·</span>
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="bg-gradient-to-r from-cyan-300 via-emerald-400 to-amber-300 bg-clip-text text-transparent">
+              4K Quality Lock Engine
+            </span>
+          </span>
+        </div>
       </div>
 
       {/* ========================================================================= */}

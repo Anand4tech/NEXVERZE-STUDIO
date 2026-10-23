@@ -9,10 +9,18 @@ import Razorpay from 'razorpay';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 
-dotenv.config();
+dotenv.config({ quiet: true });
+
+process.on('uncaughtException', (err) => {
+  console.warn('Uncaught exception handled safely:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('Unhandled rejection handled safely:', reason);
+});
 
 const app = express();
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -71,6 +79,12 @@ app.get('/videos/:filename', (req, res, next) => {
 
     const chunksize = end - start + 1;
     const file = fs.createReadStream(resolvedPath, { start, end });
+    file.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+    });
+    req.on('close', () => {
+      file.destroy();
+    });
     const head = {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
@@ -86,7 +100,14 @@ app.get('/videos/:filename', (req, res, next) => {
       'Accept-Ranges': 'bytes',
     };
     res.writeHead(200, head);
-    fs.createReadStream(resolvedPath).pipe(res);
+    const file = fs.createReadStream(resolvedPath);
+    file.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+    });
+    req.on('close', () => {
+      file.destroy();
+    });
+    file.pipe(res);
   }
 });
 
@@ -237,7 +258,25 @@ app.post('/api/save-gallery-replacement-meta', (req, res) => {
 // GEMINI VISION MULTI-FRAME ANALYSIS FOR "MOBILE TO CINEMATIC" (PRD LOGIC)
 app.post('/api/analyze-mobile-video', express.json({ limit: '50mb' }), async (req, res) => {
   try {
-    const { frames, subjectHint } = req.body;
+    const { frames, subjectHint, email, userId } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    // Require authenticated user with >0 credits before calling paid Gemini Vision API
+    let authorizedForLiveGemini = false;
+    if (cleanEmail || userId) {
+      try {
+        let query = supabase.from('studio_users').select('id, email, credits');
+        if (userId) query = query.eq('id', userId);
+        else if (cleanEmail) query = query.eq('email', cleanEmail);
+        const { data: userRec } = await query.maybeSingle();
+        if (userRec && typeof userRec.credits === 'number' && userRec.credits > 0) {
+          authorizedForLiveGemini = true;
+        }
+      } catch {
+        authorizedForLiveGemini = false;
+      }
+    }
+
     const promptInstructions = `You are a cinematic prompt engineer for Google Veo 3, Luma Ray 3, and Kling AI.
 
 Analyze the uploaded frames from a mobile video.
@@ -264,7 +303,7 @@ Rules:
   "style_tags": ["Luxury Commercial", "Epic Movie", "Cozy Instagram"]
 }`;
 
-    if (process.env.GEMINI_API_KEY && frames && Array.isArray(frames) && frames.length > 0) {
+    if (authorizedForLiveGemini && process.env.GEMINI_API_KEY && frames && Array.isArray(frames) && frames.length > 0) {
       try {
         const ai = new GoogleGenAI({});
         const contentsParts: any[] = [];
@@ -327,38 +366,36 @@ app.post('/api/secure-render', express.json({ limit: '10mb' }), async (req, res)
     }
 
     const cleanEmail = (email || '').trim().toLowerCase();
-    const isPro = cleanEmail === 'anand4earn@gmail.com' || (userId && String(userId).includes('pro'));
-
-    if (isPro) {
-      console.log(`[SECURE-RENDER] Verified PRO Account session for ${cleanEmail || userId} - Instant authorization unlocked`);
-      return res.json({
-        success: true,
-        renderId: `secure-render-pro-${Date.now()}`,
-        status: 'authorized',
-        requiredCost: 0,
-        isPro: true,
-        message: 'PRO Account verified: Uncapped high-priority render session active.',
-      });
+    const rawModel = (model === 'veo3' ? 'veo' : model) as string;
+    const validDuration = ['5s', '8s', '10s', '15s'].includes(duration) ? duration : null;
+    if (!validDuration || !MODEL_COST[rawModel]) {
+      return res.status(400).json({ success: false, error: 'Invalid model or duration specified.' });
     }
 
-    const rawModel = (model === 'veo3' ? 'veo' : model) as string;
-    const requiredCost = MODEL_COST[rawModel]?.[duration] || MODEL_COST[rawModel]?.['5s'] || 50;
+    const requiredCost = MODEL_COST[rawModel][validDuration];
 
     let query = supabase.from('studio_users').select('id, email, credits');
     if (userId) query = query.eq('id', userId);
-    else if (email) query = query.eq('email', cleanEmail);
+    else if (cleanEmail) query = query.eq('email', cleanEmail);
 
     const { data: userRecord } = await query.maybeSingle();
-    if (userRecord && typeof userRecord.credits === 'number' && userRecord.credits < requiredCost) {
+    if (!userRecord || typeof userRecord.credits !== 'number') {
+      return res.status(401).json({
+        success: false,
+        error: 'User account not found. Please sign in and top up credits.',
+      });
+    }
+
+    if (userRecord.credits < requiredCost) {
       return res.status(402).json({
         success: false,
-        error: `Insufficient credits. You have ${userRecord.credits}cr, but ${rawModel.toUpperCase()} (${duration}) requires ${requiredCost}cr.`,
+        error: `Insufficient credits. You have ${userRecord.credits}cr, but ${rawModel.toUpperCase()} (${validDuration}) requires ${requiredCost}cr.`,
         currentCredits: userRecord.credits,
         requiredCredits: requiredCost,
       });
     }
 
-    console.log(`[SECURE-RENDER] Validated session for ${cleanEmail || userId} requesting ${model} (${duration}) - Cost: ${requiredCost}cr`);
+    console.log(`[SECURE-RENDER] Validated session for ${cleanEmail || userId} requesting ${model} (${validDuration}) - Cost: ${requiredCost}cr`);
     return res.json({
       success: true,
       renderId: `secure-render-${Date.now()}`,
@@ -384,14 +421,15 @@ app.get('/api/margin-audit', (req, res) => {
     };
     const creditCosts: Record<string, Record<string, number>> = {
       ltx: { '5s': 15, '8s': 25, '10s': 35, '15s': 50 },
-      luma: { '5s': 50, '8s': 80, '10s': 100, '15s': 150 },
+      luma: { '5s': 55, '8s': 90, '10s': 110, '15s': 165 },
       wan: { '5s': 80, '8s': 125, '10s': 160, '15s': 240 },
-      hunyuan: { '5s': 90, '8s': 140, '10s': 180, '15s': 270 },
-      kling: { '5s': 120, '8s': 192, '10s': 240, '15s': 360 },
-      veo: { '5s': 270, '8s': 420, '10s': 530, '15s': 790 },
+      hunyuan: { '5s': 95, '8s': 150, '10s': 190, '15s': 285 },
+      kling: { '5s': 130, '8s': 210, '10s': 260, '15s': 390 },
+      veo: { '5s': 295, '8s': 470, '10s': 590, '15s': 880 },
     };
-    const usdToInr = 86.5;
-    const valuePerCreditInr = 0.70;
+    const usdToInr = 94.89;
+    const retailCreditInr = 0.66; // Nano Trial (₹99 / 150 cr)
+    const worstCaseBulkNetInr = 0.532; // Business Pack (₹2999 / 5500 cr = ₹0.545 less ~2.36% gateway fee)
 
     const audit: Record<string, any> = {};
     const lowMarginWarnings: any[] = [];
@@ -401,24 +439,29 @@ app.get('/api/margin-audit', (req, res) => {
       for (const [dur, costUsd] of Object.entries(durations)) {
         const costInr = Number((costUsd * usdToInr).toFixed(2));
         const credits = creditCosts[model]?.[dur] || 50;
-        const revInr = Number((credits * valuePerCreditInr).toFixed(2));
-        const margin = revInr > 0 ? Number((((revInr - costInr) / revInr) * 100).toFixed(1)) : 0;
+        const revRetailInr = Number((credits * retailCreditInr).toFixed(2));
+        const revBulkNetInr = Number((credits * worstCaseBulkNetInr).toFixed(2));
+        const retailMargin = revRetailInr > 0 ? Number((((revRetailInr - costInr) / revRetailInr) * 100).toFixed(1)) : 0;
+        const bulkNetMargin = revBulkNetInr > 0 ? Number((((revBulkNetInr - costInr) / revBulkNetInr) * 100).toFixed(1)) : 0;
         audit[model][dur] = {
           credits,
-          revenue_inr: revInr,
+          revenue_retail_inr: revRetailInr,
+          revenue_bulk_net_inr: revBulkNetInr,
           wholesale_usd: costUsd,
           wholesale_inr: costInr,
-          margin_percent: margin,
-          safe: margin >= 50,
+          retail_margin_percent: retailMargin,
+          worst_case_bulk_margin_percent: bulkNetMargin,
+          safe: bulkNetMargin >= 50,
         };
-        if (margin < 50) {
-          lowMarginWarnings.push({ model, duration: dur, margin_percent: margin });
+        if (bulkNetMargin < 50) {
+          lowMarginWarnings.push({ model, duration: dur, margin_percent: bulkNetMargin });
         }
       }
     }
 
     return res.json({
       success: true,
+      usd_to_inr_rate: usdToInr,
       min_margin_threshold: '50%',
       all_healthy: lowMarginWarnings.length === 0,
       low_margin_count: lowMarginWarnings.length,
@@ -554,14 +597,17 @@ const MODELS: Record<string, { text: string; image: string }> = {
 
 const MODEL_COST: Record<string, Record<string, number>> = {
   ltx: { '5s': 15, '8s': 25, '10s': 35, '15s': 50 },
-  luma: { '5s': 50, '8s': 80, '10s': 100, '15s': 150 },
+  luma: { '5s': 55, '8s': 90, '10s': 110, '15s': 165 },
   wan: { '5s': 80, '8s': 125, '10s': 160, '15s': 240 },
-  hunyuan: { '5s': 90, '8s': 140, '10s': 180, '15s': 270 },
-  kling: { '5s': 120, '8s': 192, '10s': 240, '15s': 360 },
-  veo: { '5s': 270, '8s': 420, '10s': 530, '15s': 790 },
+  hunyuan: { '5s': 95, '8s': 150, '10s': 190, '15s': 285 },
+  kling: { '5s': 130, '8s': 210, '10s': 260, '15s': 390 },
+  veo: { '5s': 295, '8s': 470, '10s': 590, '15s': 880 },
 };
 
-// 1. REAL GENERATION ENDPOINT: /api/generate - FAL ONLY with SUPABASE CREDIT VALIDATION
+// Per-user active generation lock to prevent parallel multi-tab double-spending
+const activeGenerationLocks = new Set<string>();
+
+// 1. REAL GENERATION ENDPOINT: /api/generate - FAL ONLY with SUPABASE CREDIT VALIDATION & ATOMIC RESERVATION
 app.post('/api/generate', async (req, res) => {
   const {
     prompt,
@@ -581,150 +627,151 @@ app.post('/api/generate', async (req, res) => {
 
   const falKey = process.env.FAL_KEY;
   const rawModelKey = (model === 'veo3' ? 'veo' : model) as string;
-  const modelKey = MODELS[rawModelKey] ? rawModelKey : 'luma';
-  const modelDef = MODELS[modelKey] || MODELS.luma;
-  const cost = MODEL_COST[modelKey]?.[duration] || MODEL_COST[modelKey]?.['5s'] || 50;
+  if (!MODELS[rawModelKey]) {
+    return res.status(400).json({ error: `Unsupported AI model: ${model}` });
+  }
+  const modelKey = rawModelKey;
+  const modelDef = MODELS[modelKey];
+
+  // Strictly validate duration so invalid duration strings never fallback to 5s pricing while rendering longer clips
+  const validDurations = ['5s', '8s', '10s', '15s'];
+  if (!validDurations.includes(duration)) {
+    return res.status(400).json({ error: `Invalid duration "${duration}". Allowed: 5s, 8s, 10s, 15s.` });
+  }
+
+  // Ensure duration passed to provider never exceeds the duration paid for by the user
+  let durationInput: any = duration;
+  const billedDuration: string = duration;
+  if (modelKey === 'kling') {
+    // Kling API supports '5' or '10'; only send '10' when user explicitly paid for 10s or 15s
+    durationInput = duration === '10s' || duration === '15s' ? '10' : '5';
+  } else if (modelKey === 'veo') {
+    // Prevent 5s request from silently rendering 8s at 5s price
+    durationInput = duration;
+  } else if (modelKey === 'wan') {
+    durationInput = duration === '5s' ? 5 : 8;
+  } else {
+    durationInput = duration;
+  }
+
+  const cost = MODEL_COST[modelKey]?.[billedDuration] || 50;
   const modelId = imageUrl ? modelDef.image : modelDef.text;
 
   const cleanEmail = (email || '').trim().toLowerCase();
-  const isPro = cleanEmail === 'anand4earn@gmail.com' || (userId && String(userId).includes('pro'));
 
-  // Authentication and credit validation before generation
-  if (!userId && !cleanEmail && !isPro) {
+  // Mandatory authentication check (no unverified 'pro' userId or email spoofing bypass)
+  if (!userId && !cleanEmail) {
     return res.status(401).json({ error: 'Authentication required. Please sign in or purchase credits to generate videos.' });
   }
 
+  const lockKey = String(userId || cleanEmail);
+  if (activeGenerationLocks.has(lockKey)) {
+    return res.status(429).json({
+      error: 'Another video generation is already in progress for your account. Please wait for it to complete before starting a new render.',
+    });
+  }
+
+  activeGenerationLocks.add(lockKey);
+
   let currentUser: { id: string; email: string; credits: number; is_pro?: boolean } | null = null;
+  let reservedCredits = false;
+
   try {
-    let query = supabase.from('studio_users').select('id, email, credits');
+    let query = supabase.from('studio_users').select('id, email, credits, is_pro');
     if (userId) query = query.eq('id', userId);
     else if (cleanEmail) query = query.eq('email', cleanEmail);
 
     const { data: userData } = await query.maybeSingle();
     if (!userData) {
-      if (isPro) {
-        currentUser = {
-          id: userId || 'pro-user-anand',
-          email: 'anand4earn@gmail.com',
-          credits: 5000,
-          is_pro: true,
-        };
-      } else {
-        return res.status(401).json({ error: 'User account not found or unauthenticated.' });
-      }
-    } else {
-      currentUser = userData;
-      if (isPro) {
-        currentUser.credits = Math.max(currentUser.credits || 0, 5000);
-      }
+      activeGenerationLocks.delete(lockKey);
+      return res.status(401).json({ error: 'User account not found. Please sign in or top up credits.' });
     }
 
-    if (!isPro && currentUser.credits < cost) {
+    currentUser = userData;
+
+    if (typeof currentUser.credits !== 'number' || currentUser.credits < cost) {
+      activeGenerationLocks.delete(lockKey);
       return res.status(402).json({
-        error: `Insufficient credits. You have ${currentUser.credits}cr, need ${cost}cr.`,
-        currentCredits: currentUser.credits,
+        error: `Insufficient credits. You have ${currentUser.credits || 0}cr, need ${cost}cr.`,
+        currentCredits: currentUser.credits || 0,
         requiredCredits: cost,
       });
     }
-  } catch (e) {
-    if (isPro) {
-      currentUser = {
-        id: userId || 'pro-user-anand',
-        email: 'anand4earn@gmail.com',
-        credits: 5000,
-        is_pro: true,
+
+    // ATOMIC PRE-DEDUCTION (RESERVATION) BEFORE CALLING EXTERNAL PAID API
+    const preDeductedBalance = Math.max(0, currentUser.credits - cost);
+    const { error: deductErr } = await supabase
+      .from('studio_users')
+      .update({ credits: preDeductedBalance })
+      .eq('id', currentUser.id);
+
+    if (deductErr) {
+      activeGenerationLocks.delete(lockKey);
+      return res.status(500).json({ error: 'Failed to reserve credits for generation. Please try again.' });
+    }
+    reservedCredits = true;
+
+    const isRealFalKey = Boolean(falKey && !falKey.includes('your_fal_ai_api_key_here') && falKey.length > 8);
+
+    // If FAL_KEY is not configured or in development/test preview, serve high-definition neural studio render
+    if (!isRealFalKey) {
+      console.log(`[STUDIO-GENERATE] Neural high-definition pipeline triggered for ${modelKey} (${duration}) - Aspect: ${aspect_ratio}`);
+      const ratioVideo =
+        aspect_ratio === '16:9'
+          ? '/videos/sample-1.mp4'
+          : aspect_ratio === '1:1'
+          ? '/videos/sample-2.mp4'
+          : '/videos/festival-dance-9-16.mp4';
+
+      return res.json({
+        video_url: ratioVideo,
+        cost,
+        remaining_credits: preDeductedBalance,
+        model: modelKey,
+        duration,
+        aspect_ratio,
+        status: 'completed',
+        source: 'neural-studio-hd',
+      });
+    }
+
+    try {
+      fal.config({ credentials: falKey });
+
+      const intensityNum = Math.min(10, Math.max(1, Number(motion_intensity) || 5));
+
+      const inputPayload: any = {
+        prompt: prompt || 'High quality cinematic motion',
+        aspect_ratio: aspect_ratio || '9:16',
+        resolution: '1080p',
+        duration: durationInput,
+        motion_intensity: intensityNum,
+        motion_scale: intensityNum / 10,
+        scene_transition: scene_transition || 'Cut',
       };
-    } else {
-      console.warn('Pre-generation credit check notice:', e);
-      return res.status(500).json({ error: 'Failed to verify user credits.' });
-    }
-  }
 
-  const isRealFalKey = Boolean(falKey && !falKey.includes('your_fal_ai_api_key_here') && falKey.length > 8);
+      if (imageUrl) {
+        inputPayload.image_url = imageUrl;
+      }
 
-  // If FAL_KEY is not configured or in development/test preview, serve high-definition neural studio render
-  if (!isRealFalKey) {
-    console.log(`[STUDIO-GENERATE] Neural high-definition pipeline triggered for ${modelKey} (${duration}) - Aspect: ${aspect_ratio}`);
-    const ratioVideo =
-      aspect_ratio === '16:9'
-        ? '/videos/sample-1.mp4'
-        : aspect_ratio === '1:1'
-        ? '/videos/sample-2.mp4'
-        : '/videos/festival-dance-9-16.mp4';
+      console.log(`[FAL.AI] Subscribing to: ${modelId} with duration: ${durationInput}, motion_intensity: ${intensityNum}, scene_transition: ${scene_transition}`);
+      const result: any = await fal.subscribe(modelId, {
+        input: inputPayload,
+        logs: true,
+      });
 
-    const remainingCredits = currentUser ? Math.max(0, currentUser.credits - cost) : 5000;
-    if (currentUser?.id && currentUser.id !== 'pro-user-anand') {
+      const videoUrl =
+        result?.data?.video?.url ||
+        result?.data?.video_url ||
+        result?.video?.url ||
+        result?.video_url ||
+        result?.output?.url;
+
+      if (!videoUrl) {
+        throw new Error('Empty video URL returned from fal.ai');
+      }
+
       try {
-        await supabase.from('studio_users').update({ credits: remainingCredits }).eq('id', currentUser.id);
-      } catch {}
-    }
-
-    return res.json({
-      video_url: ratioVideo,
-      cost,
-      remaining_credits: remainingCredits,
-      model: modelKey,
-      duration,
-      aspect_ratio,
-      status: 'completed',
-      source: 'neural-studio-hd',
-    });
-  }
-
-  try {
-    fal.config({ credentials: falKey });
-
-    let durationInput: any = duration;
-    if (modelKey === 'kling') {
-      durationInput = duration === '5s' ? '5' : duration === '8s' ? '8' : '10';
-    } else if (modelKey === 'veo') {
-      durationInput = duration === '10s' ? '10s' : '8s';
-    } else if (modelKey === 'wan') {
-      durationInput = duration === '5s' ? 5 : duration === '8s' ? 8 : 5;
-    } else {
-      durationInput = duration;
-    }
-
-    const intensityNum = Math.min(10, Math.max(1, Number(motion_intensity) || 5));
-
-    const inputPayload: any = {
-      prompt: prompt || 'High quality cinematic motion',
-      aspect_ratio: aspect_ratio || '9:16',
-      resolution: '1080p',
-      duration: durationInput,
-      motion_intensity: intensityNum,
-      motion_scale: intensityNum / 10,
-      scene_transition: scene_transition || 'Cut',
-    };
-
-    if (imageUrl) {
-      inputPayload.image_url = imageUrl;
-    }
-
-    console.log(`[FAL.AI] Subscribing to: ${modelId} with duration: ${durationInput}, motion_intensity: ${intensityNum}, scene_transition: ${scene_transition}`);
-    const result: any = await fal.subscribe(modelId, {
-      input: inputPayload,
-      logs: true,
-    });
-
-    const videoUrl =
-      result?.data?.video?.url ||
-      result?.data?.video_url ||
-      result?.video?.url ||
-      result?.video_url ||
-      result?.output?.url;
-
-    if (!videoUrl) {
-      throw new Error('Empty video URL returned from fal.ai');
-    }
-
-    // UPDATE BALANCE ONLY UPON SUCCESSFUL GENERATION
-    let remainingCredits = currentUser ? currentUser.credits - cost : 50 - cost;
-    if (currentUser?.id) {
-      remainingCredits = Math.max(0, currentUser.credits - cost);
-      try {
-        await supabase.from('studio_users').update({ credits: remainingCredits }).eq('id', currentUser.id);
-
         await supabase.from('studio_generations').insert([
           {
             id: crypto.randomUUID(),
@@ -744,35 +791,37 @@ app.post('/api/generate', async (req, res) => {
       } catch (dbErr) {
         console.warn('Notice saving studio generation record:', dbErr);
       }
+
+      return res.json({
+        video_url: videoUrl,
+        cost,
+        remaining_credits: preDeductedBalance,
+        model: modelKey,
+        duration,
+        status: 'completed',
+      });
+    } catch (err: any) {
+      console.warn('Fal.ai Generation error, refunding reserved credits to user:', err?.message);
+      if (reservedCredits && currentUser?.id) {
+        try {
+          await supabase.from('studio_users').update({ credits: currentUser.credits }).eq('id', currentUser.id);
+        } catch {}
+      }
+      return res.status(502).json({
+        error: 'Upstream AI engine failed to complete the render. Your credits were not deducted.',
+        details: err?.message,
+      });
     }
-
-    return res.json({
-      video_url: videoUrl,
-      cost,
-      remaining_credits: remainingCredits,
-      model: modelKey,
-      duration,
-      status: 'completed',
-    });
-  } catch (err: any) {
-    console.warn('Fal.ai Generation notice, falling back to neural render pipeline:', err?.message);
-    const ratioVideo =
-      aspect_ratio === '16:9'
-        ? '/videos/sample-1.mp4'
-        : aspect_ratio === '1:1'
-        ? '/videos/sample-2.mp4'
-        : '/videos/festival-dance-9-16.mp4';
-
-    const remainingCredits = currentUser ? Math.max(0, currentUser.credits - cost) : 5000;
-    return res.json({
-      video_url: ratioVideo,
-      cost,
-      remaining_credits: remainingCredits,
-      model: modelKey,
-      duration,
-      status: 'completed',
-      source: 'neural-studio-fallback',
-    });
+  } catch (e: any) {
+    if (reservedCredits && currentUser?.id) {
+      try {
+        await supabase.from('studio_users').update({ credits: currentUser.credits }).eq('id', currentUser.id);
+      } catch {}
+    }
+    console.warn('Generation credit verification error:', e);
+    return res.status(500).json({ error: 'Failed to verify user credits.' });
+  } finally {
+    activeGenerationLocks.delete(lockKey);
   }
 });
 
@@ -780,13 +829,12 @@ app.post('/api/generate', async (req, res) => {
 const UPSCALE_CREDIT_COST = 25;
 
 app.post('/api/upscale', async (req, res) => {
-  const { videoUrl, scale = 2, cinematicStyle = true, userId, email } = req.body;
+  const { videoUrl, scale = 2, userId, email } = req.body;
 
   if (!videoUrl) {
     return res.status(400).json({ error: 'videoUrl is required for upscaling.' });
   }
 
-  // Mandatory auth and credit verification (protect against unmetered API leakage)
   if (!userId && !email) {
     return res.status(401).json({
       error: 'Authentication required. 25 credits required for 2x AI Upscale.',
@@ -794,11 +842,20 @@ app.post('/api/upscale', async (req, res) => {
     });
   }
 
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const lockKey = `upscale_${userId || cleanEmail}`;
+  if (activeGenerationLocks.has(lockKey)) {
+    return res.status(429).json({ error: 'An upscale operation is already in progress for your account.' });
+  }
+  activeGenerationLocks.add(lockKey);
+
   let currentUser: { id: string; email: string; credits: number } | null = null;
+  let reserved = false;
+
   try {
     let query = supabase.from('studio_users').select('id, email, credits');
     if (userId) query = query.eq('id', userId);
-    else if (email) query = query.eq('email', email.trim().toLowerCase());
+    else if (cleanEmail) query = query.eq('email', cleanEmail);
 
     const { data: userData } = await query.maybeSingle();
     if (!userData) {
@@ -813,55 +870,59 @@ app.post('/api/upscale', async (req, res) => {
         requiredCredits: UPSCALE_CREDIT_COST,
       });
     }
-  } catch (err) {
-    console.warn('Upscale credit check error:', err);
-    return res.status(500).json({ error: 'Failed to verify user credits for upscaling.' });
-  }
 
-  const falKey = process.env.FAL_KEY;
-  let finalUpscaledUrl = videoUrl;
+    // Reserve 25 credits atomically prior to external call
+    const remainingCredits = Math.max(0, currentUser.credits - UPSCALE_CREDIT_COST);
+    const { error: deductErr } = await supabase
+      .from('studio_users')
+      .update({ credits: remainingCredits })
+      .eq('id', currentUser.id);
+    if (deductErr) {
+      return res.status(500).json({ error: 'Failed to reserve credits for upscaling.' });
+    }
+    reserved = true;
 
-  if (falKey) {
-    try {
-      fal.config({ credentials: falKey });
-      console.log(`[FAL.AI] Triggering 2x AI Upscale for: ${videoUrl}`);
+    const falKey = process.env.FAL_KEY;
+    let finalUpscaledUrl = videoUrl;
 
-      const upscaleResult: any = await fal.subscribe('fal-ai/esrgan', {
-        input: {
-          image_url: videoUrl,
-          scale: 2,
-        },
-        logs: true,
-      }).catch(async () => {
-        return await fal.subscribe('fal-ai/creative-upscaler', {
+    if (falKey && !falKey.includes('your_fal_ai_api_key_here') && falKey.length > 8) {
+      try {
+        fal.config({ credentials: falKey });
+        console.log(`[FAL.AI] Triggering 2x AI Upscale for: ${videoUrl}`);
+
+        const upscaleResult: any = await fal.subscribe('fal-ai/esrgan', {
           input: {
             image_url: videoUrl,
-            creativity: 0.25,
-            guidance_scale: 7.5,
+            scale: 2,
           },
           logs: true,
+        }).catch(async () => {
+          return await fal.subscribe('fal-ai/creative-upscaler', {
+            input: {
+              image_url: videoUrl,
+              creativity: 0.25,
+              guidance_scale: 7.5,
+            },
+            logs: true,
+          });
         });
-      });
 
-      const urlFound =
-        upscaleResult?.data?.video?.url ||
-        upscaleResult?.data?.image?.url ||
-        upscaleResult?.video?.url ||
-        upscaleResult?.image?.url;
+        const urlFound =
+          upscaleResult?.data?.video?.url ||
+          upscaleResult?.data?.image?.url ||
+          upscaleResult?.video?.url ||
+          upscaleResult?.image?.url;
 
-      if (urlFound) {
-        finalUpscaledUrl = urlFound;
+        if (urlFound) {
+          finalUpscaledUrl = urlFound;
+        }
+      } catch (e: any) {
+        if (reserved && currentUser?.id) {
+          await supabase.from('studio_users').update({ credits: currentUser.credits }).eq('id', currentUser.id);
+        }
+        return res.status(502).json({ error: 'Upscale provider error. Your 25 credits have been refunded.' });
       }
-    } catch (e: any) {
-      console.warn('Fal upscale invocation notice (using high-fidelity neural upscale proxy):', e?.message);
     }
-  }
-
-  // Deduct 25 credits from user upon successful upscale completion
-  let remainingCredits = currentUser ? currentUser.credits - UPSCALE_CREDIT_COST : 0;
-  if (currentUser?.id) {
-    remainingCredits = Math.max(0, currentUser.credits - UPSCALE_CREDIT_COST);
-    await supabase.from('studio_users').update({ credits: remainingCredits }).eq('id', currentUser.id);
 
     await supabase.from('credit_transactions').insert([
       {
@@ -875,18 +936,28 @@ app.post('/api/upscale', async (req, res) => {
         created_at: new Date().toISOString(),
       },
     ]);
-  }
 
-  return res.json({
-    success: true,
-    upscaledUrl: finalUpscaledUrl,
-    scale: 2,
-    masterResolution: '2160x3840 (4K Master)',
-    cinematicPreserved: true,
-    creditsDeducted: UPSCALE_CREDIT_COST,
-    remainingCredits,
-    message: '2x AI Upscale applied: Resolution doubled to 4K Ultra-HD with preserved cinematic grain and grade.',
-  });
+    return res.json({
+      success: true,
+      upscaledUrl: finalUpscaledUrl,
+      scale,
+      masterResolution: '2160x3840 (4K Master)',
+      cinematicPreserved: true,
+      creditsDeducted: UPSCALE_CREDIT_COST,
+      remainingCredits,
+      message: '2x AI Upscale applied: Resolution doubled to 4K Ultra-HD with preserved cinematic grain and grade.',
+    });
+  } catch (err) {
+    if (reserved && currentUser?.id) {
+      try {
+        await supabase.from('studio_users').update({ credits: currentUser.credits }).eq('id', currentUser.id);
+      } catch {}
+    }
+    console.warn('Upscale credit check error:', err);
+    return res.status(500).json({ error: 'Failed to process upscale request.' });
+  } finally {
+    activeGenerationLocks.delete(lockKey);
+  }
 });
 
 // 2. AUTHORITATIVE RAZORPAY PRICING PACKS & CREATE ORDER
@@ -898,6 +969,13 @@ const AUTHORIZED_PACKS: Record<string, { amount: number; credits: number; name: 
   business: { amount: 2999, credits: 5500, name: 'BUSINESS & COMMERCIAL STUDIO' },
 };
 
+// Server-side registry binding order_id -> authorized planId, amount, and credits
+// Prevents an attacker from creating a ₹99 'trial' order, paying ₹99, and calling /verify with planId: 'business'
+const pendingRazorpayOrders = new Map<
+  string,
+  { planId: string; amount: number; credits: number; email: string; userId: string; createdAt: number }
+>();
+
 app.post('/api/razorpay/create-order', async (req, res) => {
   const { planId, email, userId } = req.body;
 
@@ -905,6 +983,26 @@ app.post('/api/razorpay/create-order', async (req, res) => {
   const pack = AUTHORIZED_PACKS[planId];
   if (!pack) {
     return res.status(400).json({ error: 'Invalid or unknown planId specified.' });
+  }
+
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  // Server-side enforcement: Nano Trial (₹99) can only be claimed ONCE per user/email
+  if (planId === 'trial' && (cleanEmail || userId)) {
+    try {
+      let txQuery = supabase.from('credit_transactions').select('id').eq('amount_inr', 99);
+      if (cleanEmail) txQuery = txQuery.eq('email', cleanEmail);
+      else if (userId) txQuery = txQuery.eq('user_id', userId);
+
+      const { data: priorTrial } = await txQuery.limit(1).maybeSingle();
+      if (priorTrial) {
+        return res.status(403).json({
+          error: 'Nano Trial (₹99) has already been claimed on this account. Please select Starter Pack or Pro Studio.',
+        });
+      }
+    } catch (e) {
+      console.warn('Trial history check notice:', e);
+    }
   }
 
   const authorizedAmount = pack.amount;
@@ -927,12 +1025,22 @@ app.post('/api/razorpay/create-order', async (req, res) => {
         notes: {
           credits: String(authorizedCredits),
           planId: planId,
-          email: email || '',
+          amountInr: String(authorizedAmount),
+          email: cleanEmail,
           userId: userId || '',
         },
       };
 
       const order = await razorpay.orders.create(options);
+      pendingRazorpayOrders.set(order.id, {
+        planId,
+        amount: authorizedAmount,
+        credits: authorizedCredits,
+        email: cleanEmail,
+        userId: userId || '',
+        createdAt: Date.now(),
+      });
+
       return res.json({
         ...order,
         key_id: keyId,
@@ -943,8 +1051,18 @@ app.post('/api/razorpay/create-order', async (req, res) => {
     }
   }
 
+  const mockOrderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  pendingRazorpayOrders.set(mockOrderId, {
+    planId,
+    amount: authorizedAmount,
+    credits: authorizedCredits,
+    email: cleanEmail,
+    userId: userId || '',
+    createdAt: Date.now(),
+  });
+
   const mockOrder = {
-    id: `order_${Date.now()}`,
+    id: mockOrderId,
     amount: Math.round(authorizedAmount * 100),
     currency: 'INR',
     receipt: `rcpt_${Date.now()}`,
@@ -969,20 +1087,41 @@ app.post('/api/razorpay/verify', async (req, res) => {
     return res.status(400).json({ error: 'userId or email is required for credit fulfillment.' });
   }
 
-  // Look up authoritative credits from pack definition
-  const pack = AUTHORIZED_PACKS[planId];
+  if (!razorpay_payment_id || !razorpay_order_id) {
+    return res.status(400).json({ error: 'Missing mandatory payment ID or order ID.' });
+  }
+
+  // 1. Check server-side pending order registry so a user cannot create a ₹99 'trial' order and verify it as 'business'
+  const recordedOrder = pendingRazorpayOrders.get(razorpay_order_id);
+  if (recordedOrder && recordedOrder.planId !== planId) {
+    return res.status(400).json({
+      error: `Order plan mismatch: order was created for "${recordedOrder.planId}" (₹${recordedOrder.amount}), not "${planId}". Credit fulfillment blocked.`,
+    });
+  }
+
+  const authoritativePlanId = recordedOrder ? recordedOrder.planId : planId;
+  const pack = AUTHORIZED_PACKS[authoritativePlanId];
   if (!pack) {
     return res.status(400).json({ error: 'Invalid planId. Credit addition aborted.' });
   }
 
-  const creditsToAdd = pack.credits;
-  const amountPaidInr = pack.amount;
+  let creditsToAdd = pack.credits;
+  let amountPaidInr = pack.amount;
 
+  const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // In production, never allow unverified credit minting if RAZORPAY_KEY_SECRET is missing
+  if (isProd && !keySecret) {
+    return res.status(503).json({
+      error: 'Payment verification secret is not configured on the production server. Credit fulfillment blocked for security.',
+    });
+  }
 
   if (keySecret) {
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return res.status(400).json({ error: 'Missing mandatory payment verification fields.' });
+    if (!razorpay_signature) {
+      return res.status(400).json({ error: 'Missing mandatory payment signature.' });
     }
 
     const generatedSignature = crypto
@@ -993,26 +1132,71 @@ app.post('/api/razorpay/verify', async (req, res) => {
     if (generatedSignature !== razorpay_signature) {
       return res.status(400).json({ error: 'Invalid Razorpay payment signature.' });
     }
+
+    // Fetch authoritative order directly from Razorpay API to verify paid amount & planId notes
+    if (keyId) {
+      try {
+        const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+        const remoteOrder: any = await razorpay.orders.fetch(razorpay_order_id);
+        if (remoteOrder && typeof remoteOrder.amount === 'number') {
+          const expectedPaise = Math.round(pack.amount * 100);
+          if (remoteOrder.amount !== expectedPaise) {
+            return res.status(400).json({
+              error: `Order amount mismatch: Razorpay order is for ₹${remoteOrder.amount / 100}, which does not match pack price ₹${pack.amount}.`,
+            });
+          }
+          if (remoteOrder.notes?.planId && remoteOrder.notes.planId !== authoritativePlanId) {
+            return res.status(400).json({
+              error: 'Order notes planId mismatch. Tampered verification rejected.',
+            });
+          }
+        }
+      } catch (orderFetchErr: any) {
+        console.error('Razorpay order fetch verification failed:', orderFetchErr);
+        return res.status(400).json({ error: 'Unable to verify order details with Razorpay.' });
+      }
+    }
+  } else if (!recordedOrder) {
+    // In dev/demo mode without Razorpay secret, require the order to exist in pendingRazorpayOrders
+    return res.status(400).json({
+      error: 'Unrecognized order ID. Please initiate checkout from the Credit Store first.',
+    });
   }
 
   try {
-    // Replay Attack Guard: Ensure payment_id has not already been credited
-    if (razorpay_payment_id && !razorpay_payment_id.startsWith('test_')) {
-      const { data: existingTx } = await supabase
-        .from('credit_transactions')
-        .select('id')
-        .eq('payment_id', razorpay_payment_id)
-        .maybeSingle();
+    // Strict Replay Attack Guard on BOTH payment_id and order_id
+    const { data: existingTx } = await supabase
+      .from('credit_transactions')
+      .select('id')
+      .or(`payment_id.eq.${razorpay_payment_id},order_id.eq.${razorpay_order_id}`)
+      .limit(1)
+      .maybeSingle();
 
-      if (existingTx) {
-        return res.status(409).json({ error: 'This payment transaction has already been processed.' });
+    if (existingTx) {
+      pendingRazorpayOrders.delete(razorpay_order_id);
+      return res.status(409).json({ error: 'This payment or order has already been processed.' });
+    }
+
+    // Server-side enforcement: Nano Trial (₹99) can only be claimed ONCE per user/email
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (authoritativePlanId === 'trial') {
+      let trialCheck = supabase.from('credit_transactions').select('id').eq('amount_inr', 99);
+      if (cleanEmail) trialCheck = trialCheck.eq('email', cleanEmail);
+      else if (userId) trialCheck = trialCheck.eq('user_id', userId);
+
+      const { data: existingTrial } = await trialCheck.limit(1).maybeSingle();
+      if (existingTrial) {
+        pendingRazorpayOrders.delete(razorpay_order_id);
+        return res.status(403).json({
+          error: 'Nano Trial (₹99) has already been claimed on this account.',
+        });
       }
     }
 
     let userRecord: any = null;
     let query = supabase.from('studio_users').select('*');
     if (userId) query = query.eq('id', userId);
-    else if (email) query = query.eq('email', email.trim().toLowerCase());
+    else if (cleanEmail) query = query.eq('email', cleanEmail);
 
     const { data: existingUser } = await query.maybeSingle();
 
@@ -1025,8 +1209,7 @@ app.post('/api/razorpay/verify', async (req, res) => {
         .select()
         .single();
       userRecord = updatedUser;
-    } else if (email) {
-      const cleanEmail = email.trim().toLowerCase();
+    } else if (cleanEmail) {
       const newId = userId || crypto.randomUUID();
       const { data: createdUser } = await supabase
         .from('studio_users')
@@ -1035,8 +1218,8 @@ app.post('/api/razorpay/verify', async (req, res) => {
             id: newId,
             email: cleanEmail,
             credits: Number(creditsToAdd),
-            plan: planId === 'trial' ? 'starter' : planId,
-            is_pro: planId === 'pro' || planId === 'creator' || planId === 'business',
+            plan: authoritativePlanId === 'trial' ? 'starter' : authoritativePlanId,
+            is_pro: authoritativePlanId === 'pro' || authoritativePlanId === 'creator' || authoritativePlanId === 'business',
             created_at: new Date().toISOString(),
           },
         ])
@@ -1049,14 +1232,16 @@ app.post('/api/razorpay/verify', async (req, res) => {
       {
         id: crypto.randomUUID(),
         user_id: existingUser?.id || userId,
-        email: existingUser?.email || email,
-        order_id: razorpay_order_id || 'test_order',
-        payment_id: razorpay_payment_id || `test_pay_${Date.now()}`,
+        email: existingUser?.email || cleanEmail,
+        order_id: razorpay_order_id,
+        payment_id: razorpay_payment_id,
         amount_inr: amountPaidInr,
         credits_added: creditsToAdd,
         created_at: new Date().toISOString(),
       },
     ]);
+
+    pendingRazorpayOrders.delete(razorpay_order_id);
 
     return res.json({
       success: true,

@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "label": "Version 2",
+  "savedAt": "2026-10-23T08:17:14.648Z",
+  "features": [
+    "Runway-style rounded cinema frame Hero Theater Stage with auto-playing background video",
+    "Dedicated workspaces inside Text to Video, Image to Video, Mobile to Cinematic, and Watermark Studio buttons",
+    "Remix Prompt upward-floating micro-animation on Showcase Gallery cards with smooth scroll to generator bar",
+    "Mobile touch-friendly gesture controls (single-tap Play/Pause, double-tap Audio Mute/Unmute, horizontal swipe Volume tuning, tactile HUD & ripple)"
+  ]
+}

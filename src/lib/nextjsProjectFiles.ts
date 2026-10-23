@@ -14,7 +14,7 @@ export function getNextJsProjectFiles(): Record<string, string> {
     'package.json': JSON.stringify(
       {
         name: 'nexverze-studio',
-        version: '1.0.0',
+        version: '2.1.0',
         private: true,
         scripts: {
           dev: 'next dev',

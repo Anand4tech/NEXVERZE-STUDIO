@@ -280,11 +280,11 @@ export const BatchGenerationMode: React.FC<BatchGenerationModeProps> = ({
     // Check credits for first item
     const firstItem = queuedItems[0];
     const firstCost = MODEL_COST[firstItem.model]?.[firstItem.duration] || 50;
-    const currentCredits = user ? user.credits : 0;
+    let runningCredits = user ? user.credits : 0;
 
-    if (currentCredits < firstCost) {
+    if (!user || runningCredits < firstCost) {
       onOpenPlans();
-      setActiveBatchNotice(`⚠️ Insufficient credits for batch generation. You have ${currentCredits}cr, but need at least ${firstCost}cr to start.`);
+      setActiveBatchNotice(`⚠️ Insufficient credits for batch generation. You have ${runningCredits}cr, but need at least ${firstCost}cr to start.`);
       setTimeout(() => setActiveBatchNotice(null), 4000);
       return;
     }
@@ -309,9 +309,9 @@ export const BatchGenerationMode: React.FC<BatchGenerationModeProps> = ({
 
       const itemCost = MODEL_COST[currentItem.model]?.[currentItem.duration] || 50;
 
-      // Check user balance before processing this item
-      if (user && user.credits < itemCost) {
-        setActiveBatchNotice(`Batch stopped: Insufficient credits for "${currentItem.prompt.slice(0, 30)}...". Please top up.`);
+      // Check running balance before processing this item (prevents stale closure overdraft)
+      if (runningCredits < itemCost) {
+        setActiveBatchNotice(`Batch stopped: Insufficient credits (${runningCredits}cr remaining, need ${itemCost}cr) for "${currentItem.prompt.slice(0, 30)}...". Please top up.`);
         onOpenPlans();
         break;
       }
@@ -370,7 +370,8 @@ export const BatchGenerationMode: React.FC<BatchGenerationModeProps> = ({
           const remaining =
             typeof data.remaining_credits === 'number'
               ? data.remaining_credits
-              : Math.max(0, user.credits - itemCost);
+              : Math.max(0, runningCredits - itemCost);
+          runningCredits = remaining;
           const updatedUser = { ...user, credits: remaining };
           onUpdateUser(updatedUser);
           try {

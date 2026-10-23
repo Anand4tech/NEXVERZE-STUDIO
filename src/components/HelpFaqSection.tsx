@@ -149,7 +149,7 @@ export const HelpFaqSection: React.FC<HelpFaqSectionProps> = ({
             The ₹99 Trial Pack delivers <strong className="text-amber-300 font-mono">150 Credits</strong> designed for creators to test real cinematic generation:
           </p>
           <ul className="space-y-1 text-white/70 pl-1">
-            <li>• <strong>3 Full Videos on Luma Ray 3</strong> (50 cr each) OR <strong>1 Video on Kling v2.5 Turbo</strong> (120 cr).</li>
+            <li>• <strong>10 Full Videos on LTX Fast</strong> (15 cr each), <strong>2 Videos on Luma Ray 3</strong> (55 cr each), OR <strong>1 Video on Kling v2.5 Turbo</strong> (130 cr).</li>
             <li>• Immediate unlock of <strong>Watermark-Free 1080p HD exports</strong>.</li>
             <li>• Full access to <strong>Sequence Builder combined file export</strong>.</li>
             <li>• 100% Lifetime Validity — credits never expire.</li>
@@ -165,15 +165,16 @@ export const HelpFaqSection: React.FC<HelpFaqSectionProps> = ({
       question: 'What are the available Credit Packs and costs per video?',
       answer: (
         <div className="space-y-2 text-xs text-white/80 leading-relaxed">
-          <p>We offer 4 pay-as-you-go credit packs with lifetime validity and no subscriptions:</p>
+          <p>We offer 5 pay-as-you-go credit packs with lifetime validity and no subscriptions:</p>
           <ul className="space-y-1 text-white/70 pl-1">
-            <li>• <strong>⚡ Nano Trial:</strong> ₹99 for 150 Credits (~3 Luma 5s or 1 Kling video)</li>
+            <li>• <strong>⚡ Nano Trial:</strong> ₹99 for 150 Credits (10 LTX Fast, 2 Luma 5s, or 1 Kling/Wan video)</li>
             <li>• <strong>🎁 Starter Pack:</strong> ₹350 for 600 Credits (550 + 50 Bonus credits)</li>
             <li>• <strong>🔥 Pro Studio (Best Seller):</strong> ₹750 for 1,300 Credits (Watermark-free, commercial license)</li>
-            <li>• <strong>👑 Creator Studio:</strong> ₹1,499 for 3,200 Credits (Priority 4K queue for creators & agencies)</li>
+            <li>• <strong>👑 Creator Studio:</strong> ₹1,499 for 2,600 Credits (Priority 4K queue for creators & agencies)</li>
+            <li>• <strong>🏢 Business & Commercial Studio:</strong> ₹2,999 for 5,500 Credits (Full commercial resale rights)</li>
           </ul>
           <p className="pt-1 text-[11px] text-purple-200">
-            <strong>Cost Per Generation:</strong> Luma Fast: 50cr (5s) / 80cr (8s) / 100cr (10s) • Kling Pro: 120cr (5s) / 192cr (8s) / 240cr (10s) • Veo Ultra: 400cr (8s) / 500cr (10s).
+            <strong>Cost Per Generation:</strong> LTX Fast: 15cr (5s) / 25cr (8s) / 35cr (10s) / 50cr (15s) • Luma Ray 3: 55cr (5s) / 90cr (8s) / 110cr (10s) / 165cr (15s) • Wan 2.1: 80cr (5s) / 125cr (8s) / 160cr (10s) / 240cr (15s) • Hunyuan: 95cr (5s) / 150cr (8s) / 190cr (10s) / 285cr (15s) • Kling Pro: 130cr (5s) / 210cr (8s) / 260cr (10s) / 390cr (15s) • Veo Ultra: 295cr (5s) / 470cr (8s) / 590cr (10s) / 880cr (15s).
           </p>
         </div>
       ),

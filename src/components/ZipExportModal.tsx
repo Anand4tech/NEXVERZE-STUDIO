@@ -82,10 +82,10 @@ export const ZipExportModal: React.FC<ZipExportModalProps> = ({ isOpen, onClose 
             <FolderArchive className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span>Next.js 14 Standalone Project</span>
+            <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
+              <span>NexVerze Studio — Version 2.1</span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30">
-                VERCEL READY
+                SAVED SNAPSHOT v2.1
               </span>
             </h3>
             <p className="text-xs text-white/50 mono mt-0.5">
@@ -97,17 +97,16 @@ export const ZipExportModal: React.FC<ZipExportModalProps> = ({ isOpen, onClose 
         {/* Info card */}
         <div className="bg-[#121217] border border-[#27272a] rounded-2xl p-4 text-xs space-y-2 mb-5">
           <div className="flex items-center justify-between text-white/80 font-semibold">
-            <span>Package Contents:</span>
-            <span className="mono text-purple-300">Next.js 14 (App Router)</span>
+            <span>Version 2.1 Saved State Includes:</span>
+            <span className="mono text-purple-300">v2.1.0</span>
           </div>
           <ul className="space-y-1 text-white/60 list-disc list-inside text-[11px] mono">
-            <li>app/page.tsx — NexVerze Studio main video generator</li>
-            <li>app/history/page.tsx — Video generation history & downloads</li>
-            <li>app/layout.tsx — Dark #0a0a12, metadata & typography</li>
-            <li>app/manifest.ts — PWA manifest compliance</li>
-            <li>lib/supabase.ts — studio_users & studio_generations client</li>
-            <li>components/QualityLockPlayer.tsx — 1080x1920 CSS lossless crop</li>
-            <li>package.json, next.config.mjs, tailwind.config.ts</li>
+            <li>Original Quality (Crystal-Clear Unfiltered) Hero Theater Cinema Frame</li>
+            <li>30-Day AI Engine Usage Breakdown chart in Dashboard, History & Wallet</li>
+            <li>Showcase Gallery card hover scale & purple/indigo border-glow animation</li>
+            <li>Dedicated workspaces inside Text/Image/Mobile/Watermark buttons</li>
+            <li>Mobile touch gestures (Single-tap Play/Pause, 2× Tap Audio, Swipe Volume)</li>
+            <li>Showcase Gallery Remix Prompt floating micro-animation</li>
           </ul>
         </div>
 
@@ -120,13 +119,13 @@ export const ZipExportModal: React.FC<ZipExportModalProps> = ({ isOpen, onClose 
             </span>
           </div>
           <pre className="text-[11px] font-mono text-emerald-400/90 overflow-x-auto p-2.5 bg-black/50 rounded-xl leading-relaxed">
-{`# 1. Extract nexverze-studio.zip
+{`# 1. Extract nexverze-studio-version-2.1.zip
 cd nexverze-studio
 
 # 2. Push to your GitHub repo:
 git init
 git add .
-git commit -m "feat: complete NexVerze Studio Next.js 14 App Router"
+git commit -m "feat: NexVerze Studio Version 2.1"
 git branch -M main
 git remote add origin https://github.com/Anand4tech/nexverze-studio.git
 git push -u origin main --force
@@ -136,24 +135,33 @@ git push -u origin main --force
           </pre>
         </div>
 
-        {/* Download Button */}
-        <div className="space-y-3">
+        {/* Download Buttons */}
+        <div className="space-y-2.5">
+          <a
+            href="/nexverze-studio-version-2.1.zip"
+            download="nexverze-studio-version-2.1.zip"
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-600/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Version 2.1 Snapshot (nexverze-studio-version-2.1.zip)</span>
+          </a>
+
           <button
             onClick={handleDownloadZip}
             disabled={downloading}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-purple-600/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-sm"
+            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-purple-600/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-xs cursor-pointer"
           >
             {downloading ? (
               <span>Packaging Next.js 14 ZIP...</span>
             ) : downloaded ? (
               <>
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Downloaded nexverze-studio.zip (Click to re-download)</span>
+                <span>Downloaded Next.js 14 Bundle (Click to re-download)</span>
               </>
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                <span>Download Complete nexverze-studio.zip</span>
+                <span>Download Standalone Next.js 14 Bundle</span>
               </>
             )}
           </button>
@@ -168,7 +176,7 @@ git push -u origin main --force
               <span>github.com/Anand4tech/nexverze-studio</span>
               <ExternalLink className="w-3 h-3" />
             </a>
-            <span className="mono text-[10px]">Zero Dependencies Setup</span>
+            <span className="mono text-[10px]">Saved State: Version 2.1.0</span>
           </div>
         </div>
       </div>

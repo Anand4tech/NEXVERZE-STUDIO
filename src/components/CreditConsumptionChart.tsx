@@ -29,6 +29,7 @@ import {
   MarginAlert,
   MarginDifferenceAnalysis,
 } from '../lib/marginGuard';
+import { UsageBreakdownCard } from './UsageBreakdownCard';
 
 interface CreditConsumptionChartProps {
   generations: StudioGeneration[];
@@ -572,6 +573,14 @@ export const CreditConsumptionChart: React.FC<CreditConsumptionChartProps> = ({
             />
           </AreaChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* 30-Day AI Engine Usage Breakdown Section */}
+      <div className="relative z-10 pt-2">
+        <UsageBreakdownCard
+          generations={generations}
+          userCredits={userCredits}
+        />
       </div>
 
       {/* Collapsible 50% Margin Guard Diagnostic Drawer */}

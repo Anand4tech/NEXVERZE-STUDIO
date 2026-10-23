@@ -1,0 +1,14 @@
+{
+  "version": "3.0.0",
+  "label": "Version 3",
+  "savedAt": "2026-10-23T15:52:00.000Z",
+  "exchangeRate": "1 USD = 94.89 INR",
+  "features": [
+    "Calibrated all 6 AI video engines (LTX, Luma Ray 3, Wan 2.1, Hunyuan, Kling Pro, Veo 3.1) and 4 durations (5s, 8s, 10s, 15s) to 1 USD = 94.89 INR with >51% guaranteed net profit margin across all 5 Razorpay packs",
+    "Hardened Razorpay order-to-plan binding and live Razorpay amount verification to prevent plan-upgrade tampering",
+    "Atomic server-side credit reservation (pre-deduction with automatic failure refund) and per-user concurrency locks across /api/generate and /api/upscale",
+    "Strict server-side one-time Nano Trial (₹99) enforcement and replay protection on payment_id and order_id",
+    "Zero-credit lock enforcement across Text-to-Video, Image-to-Video, Batch 4x Generation, Mobile-to-Cinematic Studio, 4K Upscaling, and Watermark Studio",
+    "Hero Theater original-quality rendering with mobile touch gestures, 30-Day AI Engine Usage Breakdown charts, and interactive Showcase Gallery hover glow"
+  ]
+}

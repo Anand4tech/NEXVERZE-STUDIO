@@ -13,6 +13,7 @@ import {
   Zap,
   ShieldCheck,
 } from 'lucide-react';
+import { UsageBreakdownCard } from './UsageBreakdownCard';
 
 interface CreditModalProps {
   isOpen: boolean;
@@ -234,9 +235,6 @@ export const CreditModal: React.FC<CreditModalProps> = ({
                   }
                   if (verifyData.user) {
                     onCreditsUpdated(verifyData.user);
-                  } else {
-                    const updated = await addUserCredits(activeUser!, selectedPlan.credits);
-                    onCreditsUpdated(updated);
                   }
                   setStatusMessage({
                     type: 'success',
@@ -326,42 +324,32 @@ export const CreditModal: React.FC<CreditModalProps> = ({
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-bold text-white font-mono">{user?.email || 'anand4earn@gmail.com'}</span>
+                    <span className="text-sm font-bold text-white font-mono">{user?.email || 'Guest Session'}</span>
                     <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-purple-500 text-slate-950 font-black text-[10px] uppercase tracking-wider shadow-sm">
-                      PRO UNLOCKED
+                      {currentCredits > 0 ? 'ACTIVE WALLET' : 'FREE PREVIEW'}
                     </span>
                   </div>
                   <div className="text-xs text-purple-200/80 mt-0.5">
-                    Studio Balance: <strong className="text-amber-300 font-mono text-sm">{currentCredits} Credits</strong> Active • 100% Lifetime Validity
+                    Studio Balance: <strong className="text-amber-300 font-mono text-sm">{currentCredits} Credits</strong> • 100% Lifetime Validity
                   </div>
                 </div>
               </div>
               <div className="sm:text-right shrink-0">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-200 border border-purple-500/40 text-[11px] font-bold mono">
                   <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                  All 3 Engines Unlocked
+                  All 6 AI Engines
                 </span>
               </div>
             </div>
-            <div className="mt-3 pt-3 border-t border-white/10 space-y-2 text-[11px]">
-              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white/90">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-emerald-300">NexVerze Studio Credits (5,000 cr)</div>
-                  <div className="text-[10px] text-white/70">Fully activated in your app wallet right now. Ready to generate with Luma, Kling, and Veo.</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-white/90">
-                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-amber-300">Google AI Studio "$10 Claim / Continue to Upgrade" Prompt</div>
-                  <div className="text-[10px] text-white/70">
-                    Google requires completing the "Continue to upgrade" step (linking a Google Cloud billing profile) to activate the $10 promotional credits on your Google account.
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
+
+          {/* 30-Day AI Engine Credit Usage Breakdown in User Wallet */}
+          <UsageBreakdownCard
+            userEmail={user?.email}
+            userCredits={currentCredits}
+            compact={true}
+          />
+
           {insufficientWarning && requiredCredits && (
             <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
@@ -653,7 +641,7 @@ export const CreditModal: React.FC<CreditModalProps> = ({
               </div>
               <div className="p-3.5 rounded-2xl bg-[#0e0e16] border border-[#272738] text-xs text-white/80 space-y-2.5 leading-relaxed">
                 <p>
-                  When your balance falls below the cost of a requested generation (e.g. 50cr for Luma, 120cr for Kling, 400cr for Veo), NexVerze Studio will automatically launch the Razorpay checkout for your chosen default package:
+                  When your balance falls below the cost of a requested generation (e.g. 55cr for Luma, 130cr for Kling, 295cr for Veo), NexVerze Studio will automatically launch the Razorpay checkout for your chosen default package:
                 </p>
                 <div className="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30 flex items-center justify-between font-mono text-xs">
                   <span className="text-white font-bold">{selectedPlan.name} (+{selectedPlan.credits}cr)</span>

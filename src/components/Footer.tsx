@@ -15,8 +15,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   };
 
   return (
-    <footer className="w-full bg-[#08080d] border-t border-white/[0.06] mt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <footer className="w-full bg-[#08080d] border-t border-white/[0.06] mt-16 sm:mt-20">
+      <div className="w-full max-w-full mx-auto px-3 sm:px-6 lg:px-10 xl:px-12 py-10 sm:py-12 lg:py-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {/* Col 1 */}
         <div className="space-y-4">
           <NexVerzeLogo variant="full" size="md" />
@@ -172,7 +172,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3 mono text-[11px] text-white/40">
+      <div className="w-full max-w-full mx-auto px-3 sm:px-6 lg:px-10 xl:px-12 py-6 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-3 mono text-[11px] text-white/40">
         <span>
           © 2025–2026 NexVerze Technologies Pvt. Ltd. All rights reserved. • Page Support:{' '}
           <a href="mailto:studio@nexverze.com" className="text-purple-300 hover:underline">
@@ -183,7 +183,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             hello@nexverze.com
           </a>
         </span>
-        <span>Built with love in Chennai</span>
+        <span className="flex items-center gap-2">
+          <span>Built with love in Chennai</span>
+          <span className="px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-400/25 text-purple-300 text-[10px] font-semibold">
+            v3.0
+          </span>
+        </span>
       </div>
     </footer>
   );

@@ -59,9 +59,9 @@ export const Header: React.FC<HeaderProps> = ({
   );
 
   return (
-    <header className="sticky top-0 z-50 px-3 sm:px-6 py-2.5 bg-[#0a0a12]/90 backdrop-blur-md border-b border-white/[0.04]">
+    <header className="sticky top-0 z-50 w-full px-3 sm:px-6 lg:px-10 xl:px-12 py-2.5 bg-[#0a0a12]/90 backdrop-blur-md border-b border-white/[0.04]">
       {/* TOP HEADER - NEXVERZE STUDIO BRAND */}
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
+      <div className="w-full max-w-full mx-auto flex items-center justify-between gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
         {/* Permanent Brand Container */}
         <div className="flex items-center gap-2 relative">
           <a
@@ -89,14 +89,18 @@ export const Header: React.FC<HeaderProps> = ({
               setActiveView('studio');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className="px-3 py-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
+            className={`px-3 py-1.5 rounded-full font-semibold transition-colors cursor-pointer ${
+              activeView === 'studio'
+                ? 'bg-purple-600/30 text-purple-200 border border-purple-400/40'
+                : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
+            }`}
           >
             Home
           </a>
           <button
-            onClick={() => setActiveView('studio')}
+            onClick={() => setActiveView('studioApp')}
             className={`px-3 py-1.5 rounded-full font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeView === 'studio'
+              activeView === 'studioApp'
                 ? 'bg-purple-600/30 text-purple-200 border border-purple-400/40'
                 : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
             }`}
@@ -298,9 +302,7 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <span>{user.email.split('@')[0]}</span>
                 {(user.is_pro || user.email === 'anand4earn@gmail.com') && (
-                  <span className="bg-black/50 text-amber-300 font-black text-[9px] px-1.5 py-0.5 rounded-full border border-amber-400/40 ml-1 flex items-center gap-0.5 shadow-sm">
-                    ⚡ PRO
-                  </span>
+                  <span className="bg-black/30 text-[9px] px-1 rounded ml-0.5">PRO</span>
                 )}
               </div>
               <button

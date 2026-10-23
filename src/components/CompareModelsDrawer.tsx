@@ -138,12 +138,12 @@ export const CompareModelsDrawer: React.FC<CompareModelsDrawerProps> = ({
               </tr>
               <tr>
                 <td className="p-3.5 font-semibold text-white/60">Credits (5s Rate)</td>
-                <td className="p-3.5 mono font-bold text-amber-300">15cr (₹10.50)</td>
-                <td className="p-3.5 mono font-bold text-purple-300">50cr (₹35.00)</td>
-                <td className="p-3.5 mono font-bold text-emerald-300">80cr (₹56.00)</td>
-                <td className="p-3.5 mono font-bold text-cyan-300">90cr (₹63.00)</td>
-                <td className="p-3.5 mono font-bold text-indigo-300">120cr (₹84.00)</td>
-                <td className="p-3.5 mono font-bold text-pink-300">270cr (₹189.00)</td>
+                <td className="p-3.5 mono font-bold text-amber-300">{MODEL_COST.ltx['5s']}cr (₹10)</td>
+                <td className="p-3.5 mono font-bold text-purple-300">{MODEL_COST.luma['5s']}cr (₹36)</td>
+                <td className="p-3.5 mono font-bold text-emerald-300">{MODEL_COST.wan['5s']}cr (₹53)</td>
+                <td className="p-3.5 mono font-bold text-cyan-300">{MODEL_COST.hunyuan['5s']}cr (₹63)</td>
+                <td className="p-3.5 mono font-bold text-indigo-300">{MODEL_COST.kling['5s']}cr (₹86)</td>
+                <td className="p-3.5 mono font-bold text-pink-300">{MODEL_COST.veo['5s']}cr (₹195)</td>
               </tr>
               <tr>
                 <td className="p-3.5 font-semibold text-white/60">Best For</td>

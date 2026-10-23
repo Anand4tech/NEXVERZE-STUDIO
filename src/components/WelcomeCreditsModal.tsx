@@ -102,7 +102,7 @@ export const WelcomeCreditsModal: React.FC<{
         <div className="space-y-1.5 text-xs text-white/70 text-left px-1">
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Generate 3 Luma Ray 3 videos or 10 LTX fast reels</span>
+            <span>Generate 10 LTX fast reels, 2 Luma Ray 3, or 1 Kling Pro video</span>
           </div>
           <div className="flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-400 shrink-0" />

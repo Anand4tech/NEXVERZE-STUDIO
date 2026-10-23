@@ -1,0 +1,13 @@
+{
+  "version": "2.1.0",
+  "label": "Version 2.1",
+  "savedAt": "2026-10-23T09:40:45.718Z",
+  "features": [
+    "Original quality crystal-clear video rendering inside Runway-style rounded cinema frame Hero Theater Stage",
+    "30-Day AI Engine Usage Breakdown chart & visualization across Dashboard, History & Analytics, and Credit Wallet",
+    "Subtle hover scale and purple/indigo border-glow interactive animation on Showcase Gallery cards",
+    "Dedicated workspaces inside Text to Video, Image to Video, Mobile to Cinematic, and Watermark Studio buttons",
+    "Remix Prompt upward-floating micro-animation on Showcase Gallery cards with smooth scroll to generator bar",
+    "Mobile touch-friendly gesture controls (single-tap Play/Pause, double-tap Audio Mute/Unmute, horizontal swipe Volume tuning, tactile HUD & ripple)"
+  ]
+}

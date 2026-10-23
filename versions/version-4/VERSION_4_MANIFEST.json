@@ -1,0 +1,13 @@
+{
+  "version": "4.0.0",
+  "label": "Version 4",
+  "savedAt": "2026-10-23T16:43:50.000Z",
+  "exchangeRate": "1 USD = 94.89 INR",
+  "features": [
+    "Moved 'Next-Gen Photorealistic AI Video Studio' badge above the Home Page Header Theatre with colorful gradient typography and tighter top spacing",
+    "Moved mode buttons (Text to Video, Image to Video, Mobile to Cinematic, Watermark Studio) to the bottom area within the Home Page Header Theatre",
+    "Moved 'Turn Any Prompt & Photo Into Cinematic 4K AI Videos' headline and 'Create viral Instagram Reels & Shorts in seconds...' subtitle below the Home Page Header Theatre and above Explore Viral AI Video Reels",
+    "Moved 'Instant ₹99 Trial Pack (150cr) · 10 Major Indian Languages · 4K Quality Lock Engine' directly below the subtitle with colorful gradient fonts",
+    "Retained all Version 3 calibrated pricing (1 USD = 94.89 INR), Razorpay verification & replay protection, atomic server-side credit reservation, and zero-credit lock enforcement"
+  ]
+}

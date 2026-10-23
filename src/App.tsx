@@ -50,6 +50,7 @@ import { TermsPage } from './components/pages/TermsPage';
 import { RefundPolicyPage } from './components/pages/RefundPolicyPage';
 import { ContactSupportPage } from './components/pages/ContactSupportPage';
 import { FavoritesPage } from './components/pages/FavoritesPage';
+import { UsageBreakdownCard } from './components/UsageBreakdownCard';
 import {
   Sparkles,
   Zap,
@@ -104,6 +105,19 @@ export default function App() {
 
   const navigateToView = useCallback((view: ActiveViewType) => {
     setActiveView(view);
+    if (view === 'history') {
+      setHomeStudioTab('history');
+      setTimeout(() => {
+        const el = document.getElementById('studio-workspace-anchor');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    } else if (view === 'studio') {
+      setHomeStudioTab('generator');
+      setIsStudioExpanded(false);
+    } else if (view === 'studioApp') {
+      setHomeStudioTab('generator');
+      setIsStudioExpanded(true);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     let path = '/';
     if (view === 'privacy') path = '/privacy-policy/';
@@ -125,14 +139,14 @@ export default function App() {
     if (initialPrompt) setPrompt(initialPrompt);
     if (model) setSelectedModel(model);
     setActiveView('studioApp');
+    setHomeStudioTab('generator');
+    setIsStudioExpanded(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     let path = '/studio';
     if (typeof window !== 'undefined' && window.location.pathname !== path) {
       window.history.pushState({ view: 'studioApp' }, '', path);
     }
   }, []);
-
-
 
   // Browser back/forward button popstate handler
   useEffect(() => {
@@ -142,9 +156,21 @@ export default function App() {
       else if (p === '/terms' || p === '/terms-of-service') setActiveView('terms');
       else if (p === '/refund-policy' || p === '/refund-and-cancellation' || p === '/refund') setActiveView('refund');
       else if (p === '/contact' || p === '/contact-support') setActiveView('contact');
-      else if (p === '/history' || p === '/studio/history') setActiveView('history');
+      else if (p === '/history' || p === '/studio/history') {
+        setActiveView('history');
+        setHomeStudioTab('history');
+      }
+      else if (p === '/studio') {
+        setActiveView('studioApp');
+        setHomeStudioTab('generator');
+        setIsStudioExpanded(true);
+      }
       else if (p === '/sql') setActiveView('sql');
-      else setActiveView('studio');
+      else {
+        setActiveView('studio');
+        setHomeStudioTab('generator');
+        setIsStudioExpanded(false);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -216,7 +242,8 @@ export default function App() {
   });
 
   // Studio Tab State ('text' | 'image' | 'mobile-to-cinematic' | 'watermark')
-  const [isStudioExpanded, setIsStudioExpanded] = useState<boolean>(true);
+  // Default to false on the Home Page so no workspace is shown until a button is clicked
+  const [isStudioExpanded, setIsStudioExpanded] = useState<boolean>(false);
   const [activeStudioTab, setActiveStudioTab] = useState<'text' | 'image' | 'mobile-to-cinematic' | 'watermark'>('text');
   // Home Hub view state: 'generator' | 'history'
   const [homeStudioTab, setHomeStudioTab] = useState<'generator' | 'history'>('generator');
@@ -228,7 +255,9 @@ export default function App() {
     ratio?: '9:16' | '16:9' | '1:1'
   ) => {
     setActiveStudioTab(mode);
+    setStudioModeTab('single');
     setHomeStudioTab('generator');
+    setIsStudioExpanded(true);
     if (initialPrompt) {
       setPrompt(initialPrompt);
     }
@@ -238,15 +267,11 @@ export default function App() {
     if (ratio) {
       setSelectedRatio(ratio);
     }
-    if (activeView !== 'studio') {
-      setActiveView('studio');
+    setActiveView('studioApp');
+    if (typeof window !== 'undefined' && window.location.pathname !== '/studio') {
+      window.history.pushState({ view: 'studioApp' }, '', '/studio');
     }
-    setTimeout(() => {
-      const el = document.getElementById('studio-workspace-anchor');
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 120);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Recent Prompts Drawer State (saves last 5 successful prompts)
@@ -496,9 +521,25 @@ export default function App() {
   };
 
   // REMIX HANDLER: Clones current video prompt and configuration settings into Studio input fields
+  // with an upward-floating micro-animation of the prompt and model parameters to fill the main generator bar
   const [remixBanner, setRemixBanner] = useState<{ active: boolean; message: string }>({ active: false, message: '' });
+  const [isGeneratorReceivingRemix, setIsGeneratorReceivingRemix] = useState<boolean>(false);
+  const [flyingRemixData, setFlyingRemixData] = useState<{
+    id: number;
+    title?: string;
+    prompt: string;
+    modelLabel: string;
+    duration: string;
+    aspectRatio: string;
+    motionIntensity: number;
+    colorGrading: string;
+    sourceRect: { left: number; top: number; width: number; height: number };
+    targetRect: { left: number; top: number; width: number; height: number };
+    phase: 'launch' | 'floating' | 'docking';
+  } | null>(null);
 
   const handleRemixVideo = (config?: {
+    title?: string;
     prompt?: string;
     modelName?: string;
     model?: string;
@@ -508,23 +549,10 @@ export default function App() {
     motionIntensity?: number;
     sceneTransition?: SceneTransitionType;
     colorGrading?: ColorGradingPreset;
+    sourceRect?: { left: number; top: number; width: number; height: number };
   }) => {
-    // 0. Ensure studio workspace is opened and navigated to
-    if (activeView !== 'studioApp') {
-      setActiveView('studioApp');
-      if (typeof window !== 'undefined' && window.location.pathname !== '/studio') {
-        window.history.pushState({ view: 'studioApp' }, '', '/studio');
-      }
-    }
-    setIsStudioExpanded(true);
-
-    // 1. Clone prompt
+    // 1. Resolve prompt & model parameters to clone
     const targetPrompt = config?.prompt || currentVideo.prompt;
-    if (targetPrompt) {
-      setPrompt(targetPrompt);
-    }
-
-    // 2. Clone model
     const targetModelStr = (config?.modelName || (config as any)?.model || currentVideo.model || '').toLowerCase();
     let matchedModel: ModelType = selectedModel;
     if (targetModelStr.includes('veo') || targetModelStr === 'veo3') {
@@ -540,27 +568,113 @@ export default function App() {
     } else if (targetModelStr.includes('ltx')) {
       matchedModel = 'ltx';
     }
-    setSelectedModel(matchedModel);
 
-    // 3. Clone duration (ensuring it's valid for the selected engine)
     const rawDur = (config?.duration || currentVideo.duration || '').trim();
     const durNum = rawDur.replace(/[^0-9]/g, '');
     let matchedDur: DurationType = durNum ? (`${durNum}s` as DurationType) : '5s';
     if (!FAL_MODELS[matchedModel].durations.includes(matchedDur)) {
       matchedDur = FAL_MODELS[matchedModel].durations[0];
     }
+
+    const targetRatio =
+      config?.aspectRatio || (config as any)?.aspect_ratio || currentVideo.aspect_ratio || '9:16';
+    const validRatio: '9:16' | '16:9' | '1:1' = ['9:16', '16:9', '1:1'].includes(targetRatio)
+      ? (targetRatio as '9:16' | '16:9' | '1:1')
+      : '9:16';
+
+    const targetMotion = config?.motionIntensity !== undefined ? config.motionIntensity : motionIntensity;
+    const targetGrade = config?.colorGrading || colorGrading;
+
+    // 2. Compute launch & destination coordinates for the upward floating micro-animation
+    if (typeof window !== 'undefined') {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const startRect = config?.sourceRect || {
+        left: Math.max(20, vw / 2 - 190),
+        top: Math.min(vh - 160, vh * 0.68),
+        width: Math.min(380, vw - 40),
+        height: 118,
+      };
+      const defaultTargetRect = {
+        left: vw >= 1024 ? Math.max(36, vw * 0.05) : Math.max(16, (vw - Math.min(520, vw - 32)) / 2),
+        top: 165,
+        width: Math.min(520, vw - 32),
+        height: 118,
+      };
+
+      const animId = Date.now();
+      setFlyingRemixData({
+        id: animId,
+        title: config?.title,
+        prompt: targetPrompt,
+        modelLabel: FAL_MODELS[matchedModel].name,
+        duration: matchedDur,
+        aspectRatio: validRatio,
+        motionIntensity: targetMotion,
+        colorGrading: targetGrade,
+        sourceRect: startRect,
+        targetRect: defaultTargetRect,
+        phase: 'launch',
+      });
+
+      // Transition to upward floating trajectory on next frame
+      setTimeout(() => {
+        const promptEl = document.getElementById('studio-prompt-textarea');
+        const measuredRect = promptEl?.getBoundingClientRect();
+        setFlyingRemixData((prev) =>
+          prev && prev.id === animId
+            ? {
+                ...prev,
+                targetRect:
+                  measuredRect && measuredRect.width > 50
+                    ? {
+                        left: measuredRect.left,
+                        top: Math.max(120, Math.min(260, measuredRect.top)),
+                        width: measuredRect.width,
+                        height: measuredRect.height,
+                      }
+                    : prev.targetRect,
+                phase: 'floating',
+              }
+            : prev
+        );
+      }, 35);
+
+      // Dock into generator bar and trigger generator receiving glow
+      setTimeout(() => {
+        setFlyingRemixData((prev) => (prev && prev.id === animId ? { ...prev, phase: 'docking' } : prev));
+        setIsGeneratorReceivingRemix(true);
+      }, 560);
+
+      setTimeout(() => {
+        setFlyingRemixData((prev) => (prev && prev.id === animId ? null : prev));
+      }, 820);
+
+      setTimeout(() => {
+        setIsGeneratorReceivingRemix(false);
+      }, 1900);
+    }
+
+    // 3. Ensure studio workspace is opened in Text-to-Video generator mode
+    setActiveStudioTab('text');
+    setStudioModeTab('single');
+    setHomeStudioTab('generator');
+    setIsStudioExpanded(true);
+    if (activeView !== 'studioApp') {
+      setActiveView('studioApp');
+      if (typeof window !== 'undefined' && window.location.pathname !== '/studio') {
+        window.history.pushState({ view: 'studioApp' }, '', '/studio');
+      }
+    }
+
+    // 4. Populate prompt and model parameters in the main generator bar
+    if (targetPrompt) {
+      setPrompt(targetPrompt);
+    }
+    setSelectedModel(matchedModel);
     setSelectedDuration(matchedDur);
-
-    // 4. Clone aspect ratio
-    const targetRatio = config?.aspectRatio || (config as any)?.aspect_ratio || currentVideo.aspect_ratio;
-    if (targetRatio && ['9:16', '16:9', '1:1'].includes(targetRatio)) {
-      setSelectedRatio(targetRatio);
-    }
-
-    // 5. Clone motion dynamics & color grade
-    if (config?.motionIntensity !== undefined) {
-      setMotionIntensity(config.motionIntensity);
-    }
+    setSelectedRatio(validRatio);
+    setMotionIntensity(targetMotion);
     if (config?.sceneTransition) {
       setSceneTransition(config.sceneTransition);
     }
@@ -568,23 +682,28 @@ export default function App() {
       setColorGrading(config.colorGrading);
     }
 
-    // 6. Smooth scroll to prompt textarea and highlight it
+    // 5. Smooth scroll to the top and focus generator bar without jumping scroll position
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
       const textarea = document.getElementById('studio-prompt-textarea');
       if (textarea) {
-        textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        textarea.focus();
+        textarea.focus({ preventScroll: true });
       }
-    }, 150);
+    }, 580);
 
-    // 7. Show feedback banner
+    // 6. Show feedback banner in generator bar
     setRemixBanner({
       active: true,
-      message: `Cloned into Studio: "${targetPrompt.slice(0, 42)}..." • ${FAL_MODELS[matchedModel].name} (${matchedDur}) • ${targetRatio || '16:9'}`,
+      message: `Remixed into Generator: "${targetPrompt.slice(0, 44)}..." • ${FAL_MODELS[matchedModel].name} (${matchedDur}) • ${validRatio}`,
     });
     setTimeout(() => {
       setRemixBanner({ active: false, message: '' });
-    }, 4500);
+    }, 5000);
   };
 
   // PROMPT ENHANCER: Expands user prompt with cinematic lighting, camera angles, and model-specific depth
@@ -601,8 +720,13 @@ export default function App() {
 
   // REAL GENERATION: calls /api/generate (FAL ONLY)
   const handleGenerate = async () => {
-    if (!prompt.trim() && !imageUrl) {
-      setGenerationError('Please provide a prompt or upload an image.');
+    const effectiveImageUrl = activeStudioTab === 'image' ? imageUrl : null;
+    if (!prompt.trim() && !effectiveImageUrl) {
+      setGenerationError(
+        activeStudioTab === 'image'
+          ? 'Please upload an image or provide instructions.'
+          : 'Please provide a text prompt.'
+      );
       return;
     }
 
@@ -660,7 +784,7 @@ export default function App() {
           prompt: prompt.trim(),
           model: selectedModel,
           duration: selectedDuration,
-          imageUrl: imageUrl || undefined,
+          imageUrl: (activeStudioTab === 'image' ? imageUrl : null) || undefined,
           aspect_ratio: selectedRatio,
           motion_intensity: motionIntensity,
           scene_transition: sceneTransition,
@@ -777,36 +901,11 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
-        {/* Navigation View Selector (Only displayed on sub-pages; on main home view, Studio Hub is positioned below preview panel) */}
-        {activeView !== 'studio' && activeView !== 'studioApp' && (
+      <main className="w-full max-w-full mx-auto px-3 sm:px-6 lg:px-10 xl:px-12 py-6 sm:py-8 flex-1">
+        {/* Sub-page breadcrumb navigation (for terms, privacy, refund, contact) */}
+        {activeView !== 'studio' && activeView !== 'studioApp' && activeView !== 'history' && (
           <div className="flex items-center justify-between gap-4 mb-6">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => navigateToView('studio')}
-                className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors text-white/60 hover:text-white bg-[#18181b]"
-              >
-                Studio Generator
-              </button>
-              <button
-                onClick={() => navigateToView('history')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors ${
-                  activeView === 'history'
-                    ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40'
-                    : 'text-white/60 hover:text-white bg-[#18181b]'
-                }`}
-              >
-                History Vault
-              </button>
-              <button
-                onClick={() => setIsSequenceBuilderOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold transition-colors flex items-center gap-1.5 text-cyan-300 hover:text-white bg-[#18181b] hover:bg-[#202028] border border-cyan-500/25 cursor-pointer"
-                title="Open Sequence Builder & Multi-Clip Timeline"
-              >
-                <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Sequence Builder</span>
-              </button>
-
               {/* Active Sub-page indicators */}
               {activeView === 'privacy' && (
                 <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-purple-600/30 text-purple-300 border border-purple-500/40">
@@ -832,35 +931,56 @@ export default function App() {
 
             <button
               onClick={() => navigateToView('studio')}
-              className="text-xs mono text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1"
+              className="text-xs mono text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <span>← Back to Studio</span>
             </button>
           </div>
         )}
 
-        {/* 1. STUDIO VIEW (Home Page Preview Panel + Studio Hub Below) */}
-        {(activeView === 'studio' || activeView === 'studioApp') && (
+        {/* 1A. CLEAN HOME PAGE (No Workspace on Home Page — Preview Cinema Frame, Pricing Banner, Showcase Gallery, FAQ) */}
+        {activeView === 'studio' && (
           <div className="space-y-6 sm:space-y-7 animate-in fade-in duration-300">
-            {/* HERO SECTION WITH HEADLINE & CTAs ABOVE & HOME PAGE PREVIEW PANEL */}
             <HeroSection
               onOpenStudioWithMode={handleOpenStudioWithMode}
               isStudioOpen={false}
               onRemixVideo={handleRemixVideo}
               currentUserEmail={user?.email}
             />
+          </div>
+        )}
 
+        {/* 1B. DEDICATED WORKSPACE VIEW (Opened ONLY when clicking Text to Video, Image to Video, Mobile to Cinematic, Watermark Studio, or History) */}
+        {(activeView === 'studioApp' || activeView === 'history') && (
+          <div className="space-y-6 sm:space-y-7 animate-in fade-in duration-300">
             {/* ANCHOR FOR DIRECT SCROLL FROM COMMAND BAR / CTAs */}
             <div id="studio-workspace-anchor" className="scroll-mt-24" />
 
-            {/* STUDIO HUB NAVIGATION BAR: Studio Generator • History Vault • Sequence Builder */}
+            {/* STUDIO HUB NAVIGATION BAR: Back to Home + Studio Generator • History Vault • Sequence Builder */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-3xl bg-gradient-to-r from-purple-950/90 via-[#141026] to-indigo-950/90 border border-purple-500/40 backdrop-blur-xl shadow-xl">
               <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setHomeStudioTab('generator')}
+                  onClick={() => navigateToView('studio')}
+                  className="px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold mono transition-all flex items-center gap-2 text-white bg-white/10 hover:bg-white/20 border border-white/20 shadow-sm cursor-pointer"
+                >
+                  <span>← Back to Home</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHomeStudioTab('generator');
+                    setIsStudioExpanded(true);
+                    if (activeView !== 'studioApp') {
+                      setActiveView('studioApp');
+                      if (typeof window !== 'undefined') {
+                        window.history.pushState({ view: 'studioApp' }, '', '/studio');
+                      }
+                    }
+                  }}
                   className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
-                    homeStudioTab === 'generator'
+                    homeStudioTab === 'generator' && activeView !== 'history'
                       ? 'bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white shadow-lg shadow-purple-600/30 ring-1 ring-purple-400/40'
                       : 'text-white/70 hover:text-white bg-white/5 border border-white/10 hover:bg-white/10'
                   }`}
@@ -871,9 +991,15 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={() => setHomeStudioTab('history')}
+                  onClick={() => {
+                    setHomeStudioTab('history');
+                    setActiveView('history');
+                    if (typeof window !== 'undefined') {
+                      window.history.pushState({ view: 'history' }, '', '/history');
+                    }
+                  }}
                   className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
-                    homeStudioTab === 'history'
+                    homeStudioTab === 'history' || activeView === 'history'
                       ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 ring-1 ring-purple-400/40'
                       : 'text-white/70 hover:text-white bg-white/5 border border-white/10 hover:bg-white/10'
                   }`}
@@ -899,9 +1025,12 @@ export default function App() {
                   <div className="flex items-center bg-[#0d0d14] p-1 rounded-2xl border border-purple-500/30">
                     <button
                       type="button"
-                      onClick={() => setStudioModeTab('single')}
+                      onClick={() => {
+                        setStudioModeTab('single');
+                        setIsStudioExpanded(true);
+                      }}
                       className={`px-3.5 py-1.5 rounded-xl text-xs font-bold mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                        studioModeTab === 'single'
+                        isStudioExpanded && studioModeTab === 'single'
                           ? 'bg-purple-600 text-white shadow-md'
                           : 'text-white/60 hover:text-white'
                       }`}
@@ -911,9 +1040,12 @@ export default function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setStudioModeTab('batch')}
+                      onClick={() => {
+                        setStudioModeTab('batch');
+                        setIsStudioExpanded(true);
+                      }}
                       className={`px-3.5 py-1.5 rounded-xl text-xs font-bold mono transition-all flex items-center gap-1.5 cursor-pointer ${
-                        studioModeTab === 'batch'
+                        isStudioExpanded && studioModeTab === 'batch'
                           ? 'bg-gradient-to-r from-amber-500 to-fuchsia-600 text-white shadow-md shadow-fuchsia-950/40'
                           : 'text-white/60 hover:text-white'
                       }`}
@@ -937,6 +1069,8 @@ export default function App() {
                   setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
                   setSelectedRatio(r);
                   setHomeStudioTab('generator');
+                  setActiveStudioTab('text');
+                  setIsStudioExpanded(true);
                   setTimeout(() => {
                     const el = document.getElementById('studio-workspace-anchor');
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -971,162 +1105,192 @@ export default function App() {
               </div>
             )}
 
-            {/* Primary Studio Feature Tabs: Text to Video, Image to Video, Mobile to Cinematic */}
-            <div className="flex flex-wrap items-center gap-2 bg-[#121020] p-1.5 rounded-2xl border border-purple-500/30">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveStudioTab('text');
-                  if (studioModeTab === 'batch') setStudioModeTab('single');
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
-                  activeStudioTab === 'text' && studioModeTab === 'single'
-                    ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg'
-                    : 'text-white/60 hover:text-white bg-white/5'
-                }`}
-              >
-                <Wand2 className="w-4 h-4 text-amber-300" />
-                <span>✨ Text to Video</span>
-              </button>
+            {/* Primary Studio Feature Tabs: Text to Video, Image to Video, Mobile to Cinematic, Watermark Studio */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-[#121020] p-1.5 rounded-2xl border border-purple-500/30">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveStudioTab('text');
+                    if (studioModeTab === 'batch') setStudioModeTab('single');
+                    setIsStudioExpanded(true);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
+                    isStudioExpanded && activeStudioTab === 'text' && studioModeTab === 'single'
+                      ? 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg'
+                      : 'text-white/60 hover:text-white bg-white/5'
+                  }`}
+                >
+                  <Wand2 className="w-4 h-4 text-amber-300" />
+                  <span>✨ Text to Video</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveStudioTab('image');
+                    if (studioModeTab === 'batch') setStudioModeTab('single');
+                    setIsStudioExpanded(true);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
+                    isStudioExpanded && activeStudioTab === 'image' && studioModeTab === 'single'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+                      : 'text-white/60 hover:text-white bg-white/5'
+                  }`}
+                >
+                  <span>🖼️ Image to Video</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveStudioTab('mobile-to-cinematic');
+                    if (studioModeTab === 'batch') setStudioModeTab('single');
+                    setIsStudioExpanded(true);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
+                    isStudioExpanded && activeStudioTab === 'mobile-to-cinematic' && studioModeTab === 'single'
+                      ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-pink-600 text-black font-extrabold shadow-lg'
+                      : 'text-amber-300/80 hover:text-amber-300 bg-amber-950/20 border border-amber-500/30'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>🎥 Mobile to Cinematic</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveStudioTab('watermark');
+                    if (studioModeTab === 'batch') setStudioModeTab('single');
+                    setIsStudioExpanded(true);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
+                    isStudioExpanded && activeStudioTab === 'watermark' && studioModeTab === 'single'
+                      ? 'bg-gradient-to-r from-purple-500 via-indigo-600 to-purple-700 text-white shadow-lg'
+                      : 'text-purple-300/80 hover:text-purple-300 bg-purple-950/20 border border-purple-500/30'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 text-cyan-300" />
+                  <span>🛡️ Watermark Studio</span>
+                </button>
+              </div>
 
               <button
                 type="button"
-                onClick={() => {
-                  setActiveStudioTab('image');
-                  if (studioModeTab === 'batch') setStudioModeTab('single');
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
-                  activeStudioTab === 'image' && studioModeTab === 'single'
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
-                    : 'text-white/60 hover:text-white bg-white/5'
-                }`}
+                onClick={() => navigateToView('studio')}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold mono text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Close workspace and return to Home Page"
               >
-                <span>🖼️ Image to Video</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveStudioTab('mobile-to-cinematic');
-                  if (studioModeTab === 'batch') setStudioModeTab('single');
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
-                  activeStudioTab === 'mobile-to-cinematic' && studioModeTab === 'single'
-                    ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-pink-600 text-black font-extrabold shadow-lg'
-                    : 'text-amber-300/80 hover:text-amber-300 bg-amber-950/20 border border-amber-500/30'
-                }`}
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>🎥 Mobile to Cinematic</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveStudioTab('watermark');
-                  if (studioModeTab === 'batch') setStudioModeTab('single');
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold mono transition-all flex items-center gap-2 cursor-pointer ${
-                  activeStudioTab === 'watermark' && studioModeTab === 'single'
-                    ? 'bg-gradient-to-r from-purple-500 via-indigo-600 to-purple-700 text-white shadow-lg'
-                    : 'text-purple-300/80 hover:text-purple-300 bg-purple-950/20 border border-purple-500/30'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4 text-cyan-300" />
-                <span>🛡️ Watermark Studio</span>
+                <X className="w-3.5 h-3.5" />
+                <span>Close Workspace</span>
               </button>
             </div>
 
-            {/* If Batch Mode is selected */}
-            {studioModeTab === 'batch' ? (
-              <div className="bg-[#18181b] border border-[#27272a] rounded-3xl p-6 sm:p-7 shadow-xl">
-                <BatchGenerationMode
-                  user={user}
-                  onUpdateUser={(updatedUser) => setUser(updatedUser)}
-                  defaultModel={selectedModel}
-                  defaultDuration={selectedDuration}
-                  defaultRatio={selectedRatio}
-                  audioConfig={audioConfig}
-                  motionIntensity={motionIntensity}
-                  sceneTransition={sceneTransition}
-                  isFreeUser={isFreeUser}
-                  onOpenPlans={() => {
-                    setInsufficientCreditTrigger(false);
-                    setIsCreditModalOpen(true);
-                  }}
-                  onSelectVideoForPlayer={(sample) => {
-                    setCurrentVideo(sample);
-                    showGlobalNotice(`✓ Loaded "${sample.title}" to Master Preview Player!`);
-                  }}
-                />
-              </div>
-            ) : activeStudioTab === 'mobile-to-cinematic' ? (
-              <MobileToCinematicStudio
-                user={user}
-                onOpenAuth={() => setIsAuthModalOpen(true)}
-                onOpenPlans={() => {
-                  setInsufficientCreditTrigger(false);
-                  setIsCreditModalOpen(true);
-                }}
-                setIsCreditModalOpen={setIsCreditModalOpen}
-                onRemixVideo={(cfg) => {
-                  setPrompt(cfg.prompt);
-                  setSelectedModel(cfg.modelName as any);
-                  setSelectedDuration(cfg.duration as any);
-                  setSelectedRatio(cfg.aspectRatio);
-                  setActiveStudioTab('text');
-                  showGlobalNotice('✨ Loaded cinematic prompt into studio workspace!');
-                }}
-                onBackToStudio={() => setActiveStudioTab('text')}
-              />
-            ) : activeStudioTab === 'watermark' ? (
-              <WatermarkStudio
-                onBackToStudio={() => setActiveStudioTab('text')}
-                user={user}
-                onOpenPlans={() => {
-                  setInsufficientCreditTrigger(false);
-                  setIsCreditModalOpen(true);
-                }}
-                setIsCreditModalOpen={setIsCreditModalOpen}
-              />
-            ) : (
-              <div id="studio-workspace-anchor" className="space-y-6 pt-2">
-                <div className="space-y-6 animate-in fade-in duration-200">
-                  {/* Split Grid: Left Controls | Right Quality Lock Viewport */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              {/* Left Column (6 Cols): Input & Controls */}
-              <div className="lg:col-span-6 bg-[#18181b] border border-[#27272a] rounded-3xl p-6 sm:p-7 space-y-6 shadow-xl">
-                {/* 1. Dynamic Cropping Boundaries Image Upload Guide */}
-                <div id="image-upload-guide-container">
-                  <ImageUploadGuide
-                  imageUrl={imageUrl}
-                  imageUrls={imageUrls}
-                  onImageUpload={handleImageUpload}
-                  onImagesUpload={handleImagesUpload}
-                  onRemoveImage={() => {
-                    setImageUrl(null);
-                    setImageUrls([]);
-                  }}
-                  onRemoveImageAt={handleRemoveImageAt}
-                  onClearAllImages={handleClearAllImages}
-                  selectedRatio={selectedRatio}
-                  onRatioChange={setSelectedRatio}
-                  prompt={prompt}
-                  onPromptChange={setPrompt}
-                  onEnhancePrompt={handleEnhancePrompt}
-                  isEnhancingPrompt={isEnhancingPrompt}
-                  promptEnhancedSuccess={promptEnhancedSuccess}
-                  onGenerate={handleGenerate}
-                  isGenerating={isGenerating}
-                  generationProgress={generationProgress}
-                  liveCreditCost={liveCreditCost}
-                  userCredits={user?.credits || 0}
-                  selectedModelName={FAL_MODELS[selectedModel].name}
-                />
-                </div>
+            {/* Render the dedicated workspace for the active button */}
+            {(
+              <>
+                {/* If Batch Mode is selected */}
+                {studioModeTab === 'batch' ? (
+                  <div className="bg-[#18181b] border border-[#27272a] rounded-3xl p-6 sm:p-7 shadow-xl">
+                    <BatchGenerationMode
+                      user={user}
+                      onUpdateUser={(updatedUser) => setUser(updatedUser)}
+                      defaultModel={selectedModel}
+                      defaultDuration={selectedDuration}
+                      defaultRatio={selectedRatio}
+                      audioConfig={audioConfig}
+                      motionIntensity={motionIntensity}
+                      sceneTransition={sceneTransition}
+                      isFreeUser={isFreeUser}
+                      onOpenPlans={() => {
+                        setInsufficientCreditTrigger(false);
+                        setIsCreditModalOpen(true);
+                      }}
+                      onSelectVideoForPlayer={(sample) => {
+                        setCurrentVideo(sample);
+                        showGlobalNotice(`✓ Loaded "${sample.title}" to Master Preview Player!`);
+                      }}
+                    />
+                  </div>
+                ) : activeStudioTab === 'mobile-to-cinematic' ? (
+                  <MobileToCinematicStudio
+                    user={user}
+                    onOpenAuth={() => setIsAuthModalOpen(true)}
+                    onOpenPlans={() => {
+                      setInsufficientCreditTrigger(false);
+                      setIsCreditModalOpen(true);
+                    }}
+                    setIsCreditModalOpen={setIsCreditModalOpen}
+                    onRemixVideo={(cfg) => {
+                      setPrompt(cfg.prompt);
+                      setSelectedModel(cfg.modelName as any);
+                      setSelectedDuration(cfg.duration as any);
+                      setSelectedRatio(cfg.aspectRatio);
+                      setActiveStudioTab('text');
+                      setIsStudioExpanded(true);
+                      showGlobalNotice('✨ Loaded cinematic prompt into Text to Video workspace!');
+                    }}
+                    onBackToStudio={() => setIsStudioExpanded(false)}
+                  />
+                ) : activeStudioTab === 'watermark' ? (
+                  <WatermarkStudio
+                    onBackToStudio={() => setIsStudioExpanded(false)}
+                    user={user}
+                    onOpenPlans={() => {
+                      setInsufficientCreditTrigger(false);
+                      setIsCreditModalOpen(true);
+                    }}
+                    setIsCreditModalOpen={setIsCreditModalOpen}
+                  />
+                ) : (
+                  <div className="space-y-6 pt-2">
+                    <div className="space-y-6 animate-in fade-in duration-200">
+                      {/* Split Grid: Left Controls | Right Quality Lock Viewport */}
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  {/* Left Column (6 Cols): Main Generator Bar & Controls */}
+                  <div
+                    id="studio-generator-bar"
+                    className={`lg:col-span-6 bg-[#18181b] border rounded-3xl p-6 sm:p-7 space-y-6 shadow-xl transition-all duration-500 ${
+                      isGeneratorReceivingRemix
+                        ? 'animate-generator-receive border-fuchsia-400 ring-2 ring-fuchsia-500/50'
+                        : 'border-[#27272a]'
+                    }`}
+                  >
+                    {/* Dedicated Image to Video Workspace Input (shown ONLY when Image to Video tab is active) */}
+                    {activeStudioTab === 'image' && (
+                      <div id="image-upload-guide-container">
+                        <ImageUploadGuide
+                          imageUrl={imageUrl}
+                          imageUrls={imageUrls}
+                          onImageUpload={handleImageUpload}
+                          onImagesUpload={handleImagesUpload}
+                          onRemoveImage={() => {
+                            setImageUrl(null);
+                            setImageUrls([]);
+                          }}
+                          onRemoveImageAt={handleRemoveImageAt}
+                          onClearAllImages={handleClearAllImages}
+                          selectedRatio={selectedRatio}
+                          onRatioChange={setSelectedRatio}
+                          prompt={prompt}
+                          onPromptChange={setPrompt}
+                          onEnhancePrompt={handleEnhancePrompt}
+                          isEnhancingPrompt={isEnhancingPrompt}
+                          promptEnhancedSuccess={promptEnhancedSuccess}
+                          onGenerate={handleGenerate}
+                          isGenerating={isGenerating}
+                          generationProgress={generationProgress}
+                          liveCreditCost={liveCreditCost}
+                          userCredits={user?.credits || 0}
+                          selectedModelName={FAL_MODELS[selectedModel].name}
+                        />
+                      </div>
+                    )}
 
-                {/* 2. Text Prompt Input */}
-                <div className="space-y-2">
+                    {/* Dedicated Text to Video Workspace Input (shown ONLY when Text to Video tab is active) */}
+                    {activeStudioTab === 'text' && (
+                    <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-extrabold uppercase tracking-wider mono flex items-center gap-2">
                       <Wand2 className="w-4 h-4 text-fuchsia-400" />
@@ -1169,29 +1333,45 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* REMIX NOTIFICATION BANNER */}
+                  {/* REMIX NOTIFICATION BANNER WITH MODEL PARAMETERS */}
                   {remixBanner.active && (
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/80 via-indigo-900/80 to-purple-900/80 border border-purple-400/50 flex items-center justify-between gap-3 text-xs text-white shadow-lg animate-fade-in ring-1 ring-purple-400/30">
-                      <div className="flex items-center gap-2">
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-900/85 via-fuchsia-950/85 to-indigo-900/85 border border-fuchsia-400/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-white shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-300 ring-1 ring-fuchsia-400/40">
+                      <div className="flex items-center gap-2 min-w-0">
                         <Shuffle className="w-4 h-4 text-amber-300 animate-spin shrink-0" />
-                        <span className="font-semibold text-purple-200">
+                        <span className="font-semibold text-purple-100 truncate">
                           {remixBanner.message}
                         </span>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40 mono font-bold shrink-0">
-                        ⚡ Remixed
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0 mono text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/40">
+                          {FAL_MODELS[selectedModel].name}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-fuchsia-500/30 text-fuchsia-200 border border-fuchsia-400/40">
+                          {selectedRatio}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                          ⚡ {selectedDuration}
+                        </span>
+                      </div>
                     </div>
                   )}
 
-                  <PromptAutocompleteTextarea
-                    id="studio-prompt-textarea"
-                    rows={3}
-                    value={prompt}
-                    onChange={setPrompt}
-                    placeholder="Enter detailed cinematic scene description, camera angles, lighting, mood... (Type for cinematic autocomplete)"
-                    className="w-full bg-[#0f0f17] border border-[#27272a] focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-2xl p-3.5 text-sm text-white placeholder-white/30 outline-none resize-none transition"
-                  />
+                  <div
+                    className={`rounded-2xl transition-all duration-500 ${
+                      isGeneratorReceivingRemix
+                        ? 'ring-2 ring-fuchsia-400 shadow-[0_0_30px_rgba(217,70,239,0.45)] scale-[1.01]'
+                        : ''
+                    }`}
+                  >
+                    <PromptAutocompleteTextarea
+                      id="studio-prompt-textarea"
+                      rows={3}
+                      value={prompt}
+                      onChange={setPrompt}
+                      placeholder="Enter detailed cinematic scene description, camera angles, lighting, mood... (Type for cinematic autocomplete)"
+                      className="w-full bg-[#0f0f17] border border-[#27272a] focus:border-purple-500 focus:ring-1 focus:ring-purple-500 rounded-2xl p-3.5 text-sm text-white placeholder-white/30 outline-none resize-none transition"
+                    />
+                  </div>
 
                   {/* VIRAL PROMPT CHIPS (1-Click Presets for Reels) */}
                   <ViralPromptChips onSelectPrompt={setPrompt} activePrompt={prompt} />
@@ -1405,9 +1585,10 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                </div>
+                    </div>
+                    )}
 
-                {/* 3. Model Selector (3 Buttons with Badge + Modal Info ? Combo) */}
+                    {/* 3. Model Selector (3 Buttons with Badge + Modal Info ? Combo) */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold uppercase tracking-wider text-white/60 mono">
@@ -1932,14 +2113,34 @@ export default function App() {
                 />
               </div>
             </div>
+
+            {/* User Dashboard: 30-Day AI Engine Credit Usage Breakdown */}
+            <UsageBreakdownCard
+              userEmail={user?.email}
+              userCredits={user?.credits ?? 0}
+              onOpenFullHistory={() => {
+                setHomeStudioTab('history');
+                setActiveView('history');
+                if (typeof window !== 'undefined') {
+                  window.history.pushState({ view: 'history' }, '', '/history');
+                }
+              }}
+            />
           </div>
         </div>
       )}
+      </>
+    )}
     </div>
   )}
+          </div>
+        )}
 
-  {/* PERSISTENT GALAXY PRICING STRATEGY BANNER: Lifetime Validity & ₹99 Trial Pack */}
-  <div className="relative rounded-3xl bg-gradient-to-r from-[#170e2e]/95 via-[#0e0a22]/95 to-[#191036]/95 border border-purple-500/40 p-5 sm:p-6 overflow-hidden shadow-[0_0_50px_rgba(168,85,247,0.22)] backdrop-blur-xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 group transition-all hover:border-purple-400/60 animate-float-subtle">
+        {/* HOME PAGE SECTIONS: Pricing Banner, Showcase Gallery, and Help & FAQ (Shown ONLY on Home Page) */}
+        {activeView === 'studio' && (
+          <div className="space-y-6 sm:space-y-7 mt-6 sm:mt-7 animate-in fade-in duration-300">
+            {/* PERSISTENT GALAXY PRICING STRATEGY BANNER: Lifetime Validity & ₹99 Trial Pack */}
+            <div className="relative rounded-3xl bg-gradient-to-r from-[#170e2e]/95 via-[#0e0a22]/95 to-[#191036]/95 border border-purple-500/40 p-5 sm:p-6 overflow-hidden shadow-[0_0_50px_rgba(168,85,247,0.22)] backdrop-blur-xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 group transition-all hover:border-purple-400/60 animate-float-subtle">
     {/* Cosmic Nebula Backdrops */}
     <div className="absolute -top-20 -right-20 w-80 h-80 bg-purple-600/20 rounded-full blur-3xl pointer-events-none group-hover:bg-purple-600/30 transition-all duration-700" />
     <div className="absolute -bottom-20 -left-10 w-72 h-72 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
@@ -2040,26 +2241,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 2. HISTORY VIEW */}
-        {activeView === 'history' && (
-          <HistoryView
-            userEmail={user?.email}
-            userId={user?.id}
-            userCredits={user?.credits ?? 0}
-            onSelectPrompt={(p, m, r) => {
-              setPrompt(p);
-              setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
-              setSelectedRatio(r);
-              setActiveView('studio');
-            }}
-            onNavigateToGallery={() => {
-              setActiveView('studio');
-              setTimeout(() => {
-                document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
-              }, 120);
-            }}
-          />
-        )}
 
         {/* 2.5 DEDICATED FAVORITES PAGE */}
         {activeView === 'favorites' && (
@@ -2224,6 +2405,106 @@ export default function App() {
       />
 
       <Footer onNavigate={navigateToView} />
+
+      {/* GLOBAL FLOATING MICRO-ANIMATION OVERLAY: Prompt & Model Parameters Floating Upward to Fill Main Generator Bar */}
+      {flyingRemixData && (
+        <div className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden">
+          {/* Primary Floating Prompt & Model Parameters Capsule */}
+          <div
+            style={{
+              position: 'fixed',
+              left: `${
+                flyingRemixData.phase === 'launch'
+                  ? flyingRemixData.sourceRect.left
+                  : flyingRemixData.targetRect.left
+              }px`,
+              top: `${
+                flyingRemixData.phase === 'launch'
+                  ? flyingRemixData.sourceRect.top
+                  : flyingRemixData.targetRect.top
+              }px`,
+              width: `${
+                flyingRemixData.phase === 'launch'
+                  ? flyingRemixData.sourceRect.width
+                  : flyingRemixData.targetRect.width
+              }px`,
+              opacity:
+                flyingRemixData.phase === 'docking'
+                  ? 0
+                  : 1,
+              transform:
+                flyingRemixData.phase === 'launch'
+                  ? 'translateY(0px) scale(1)'
+                  : flyingRemixData.phase === 'floating'
+                  ? 'translateY(-8px) scale(1.03)'
+                  : 'translateY(0px) scale(0.94)',
+              transition:
+                'left 540ms cubic-bezier(0.22, 1, 0.36, 1), top 540ms cubic-bezier(0.22, 1, 0.36, 1), width 540ms cubic-bezier(0.22, 1, 0.36, 1), transform 540ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease-out',
+            }}
+            className="rounded-2xl bg-gradient-to-r from-[#1a1033]/95 via-[#231242]/95 to-[#18102e]/95 border-2 border-fuchsia-400/90 p-3.5 shadow-[0_20px_60px_rgba(217,70,239,0.65)] backdrop-blur-xl space-y-2"
+          >
+            {/* Header badge */}
+            <div className="flex items-center justify-between gap-2 text-[10px] mono font-extrabold">
+              <span className="flex items-center gap-1.5 text-amber-300">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+                <span>REMIXING PROMPT & PARAMETERS TO GENERATOR ↑</span>
+              </span>
+              <span className="px-2 py-0.5 rounded-full bg-fuchsia-500/30 border border-fuchsia-300/50 text-fuchsia-200">
+                Auto-Filling Studio
+              </span>
+            </div>
+
+            {/* Floating Prompt Snippet */}
+            <p className="text-xs text-white font-serif italic line-clamp-2 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10">
+              "{flyingRemixData.prompt}"
+            </p>
+
+            {/* Staggered Floating Model Parameter Tokens */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[10px] mono font-bold">
+              <span
+                style={{
+                  transform:
+                    flyingRemixData.phase === 'floating' ? 'translateY(-3px)' : 'translateY(0)',
+                  transition: 'transform 380ms cubic-bezier(0.22, 1, 0.36, 1) 30ms',
+                }}
+                className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white border border-purple-300/60 shadow-md"
+              >
+                🎬 Engine: {flyingRemixData.modelLabel}
+              </span>
+              <span
+                style={{
+                  transform:
+                    flyingRemixData.phase === 'floating' ? 'translateY(-5px)' : 'translateY(0)',
+                  transition: 'transform 380ms cubic-bezier(0.22, 1, 0.36, 1) 70ms',
+                }}
+                className="px-2.5 py-0.5 rounded-full bg-indigo-600/80 text-white border border-indigo-300/60 shadow-md"
+              >
+                📐 Ratio: {flyingRemixData.aspectRatio}
+              </span>
+              <span
+                style={{
+                  transform:
+                    flyingRemixData.phase === 'floating' ? 'translateY(-4px)' : 'translateY(0)',
+                  transition: 'transform 380ms cubic-bezier(0.22, 1, 0.36, 1) 110ms',
+                }}
+                className="px-2.5 py-0.5 rounded-full bg-amber-500/80 text-slate-950 font-black border border-amber-300/70 shadow-md"
+              >
+                ⏱️ Duration: {flyingRemixData.duration}
+              </span>
+              <span
+                style={{
+                  transform:
+                    flyingRemixData.phase === 'floating' ? 'translateY(-6px)' : 'translateY(0)',
+                  transition: 'transform 380ms cubic-bezier(0.22, 1, 0.36, 1) 150ms',
+                }}
+                className="px-2.5 py-0.5 rounded-full bg-cyan-600/70 text-cyan-100 border border-cyan-300/50 shadow-md"
+              >
+                ⚡ Motion: {flyingRemixData.motionIntensity}/10 • {flyingRemixData.colorGrading}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
