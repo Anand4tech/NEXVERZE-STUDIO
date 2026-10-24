@@ -266,4 +266,47 @@
     0 14px 34px -8px rgba(217, 70, 239, 0.28);
 }
 
+/* Subtle breathing animation + pulsing amber gradient border for Low Balance warning overlay */
+@keyframes lowBalanceBreathing {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.35),
+      0 8px 26px -4px rgba(245, 158, 11, 0.22),
+      inset 0 0 18px rgba(245, 158, 11, 0.08);
+  }
+  50% {
+    transform: translateY(-1.5px) scale(1.01);
+    box-shadow:
+      0 0 0 2px rgba(251, 191, 36, 0.85),
+      0 14px 36px -2px rgba(245, 158, 11, 0.42),
+      0 0 24px rgba(249, 115, 22, 0.32),
+      inset 0 0 28px rgba(251, 191, 36, 0.16);
+  }
+}
+
+@keyframes amberBorderGradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.low-balance-amber-pulse-card {
+  border: 2px solid transparent;
+  background-image:
+    linear-gradient(145deg, #24131c 0%, #1c1326 55%, #171226 100%),
+    linear-gradient(90deg, #f59e0b, #fde047, #f97316, #fbbf24, #f59e0b);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-size: 100% 100%, 240% 240%;
+  animation:
+    lowBalanceBreathing 2.8s ease-in-out infinite,
+    amberBorderGradientShift 3.6s ease infinite;
+  will-change: transform, box-shadow, background-position;
+}
+
+
 

@@ -1,0 +1,15 @@
+{
+  "version": "4.2.0",
+  "label": "Version 4.2",
+  "savedAt": "2026-10-24T09:32:00.000Z",
+  "exchangeRate": "1 USD = 94.89 INR",
+  "features": [
+    "1. Multi-Scene Storyboard Mode (Script-to-Full Video): 3-Scene AI Director (Intro / Action / Climax) with 1-click Story Breakdown (/api/generate-storyboard) and sequential/individual scene generation",
+    "2. Consistent Character Lock (@Character Reference): Upload character face photo + character name tag for identity/face consistency across prompts (+10 Credits)",
+    "3. Auto BGM & Sound Effects (SFX) Sync: Smart Soundscape Engine with 6 procedural Web Audio profiles (Auto Scene Match, Mass Action BGM, Lo-Fi Chill, Emotional Strings, Sci-Fi Cyber, Thriller Tension) (+5 Credits)",
+    "4. Visual Camera Path Preview: Interactive Camera Motion Director grid with live animated SVG motion path HUD on hover",
+    "5. Draft Preview First (Low-Cost Keyframe Preview): 'Preview Keyframe (8 Cr / ₹5)' button generates fast keyframe image (/api/preview-keyframe), allows 'Use Frame #N & Generate Video' or 'Do you need another frame? (+8 Cr / ₹5) [X/5 Used]' up to 5 frames max with atomic server-side 8-credit reservation & automatic refund on error",
+    "6. Auto Viral Captions / Subtitles Overlay: 3 viral caption styles (Hormozi Bold Pop, Tanglish Glow Reels, Minimal Cinema) rendered live over the video player synced with playback/voiceover (+5 Credits)",
+    "Full security & logic audit fixes: Server-side cost validation for all add-ons, Razorpay replay protection, Watermark Studio 3-Tier Engine, and all Version 4 UI layouts"
+  ]
+}

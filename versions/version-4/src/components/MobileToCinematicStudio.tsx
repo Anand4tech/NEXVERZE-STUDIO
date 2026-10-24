@@ -20,7 +20,7 @@ interface MobileToCinematicStudioProps {
   onRemixVideo: (config: {
     prompt: string;
     modelName: 'veo3' | 'veo' | 'luma' | 'kling' | 'ltx' | 'wan' | 'hunyuan';
-    duration: '5s' | '10s' | '15s';
+    duration: '5s' | '8s' | '10s' | '15s';
     aspectRatio: '9:16' | '16:9' | '1:1';
   }) => void;
   onBackToStudio?: () => void;
@@ -115,7 +115,7 @@ export const MobileToCinematicStudio: React.FC<MobileToCinematicStudioProps> = (
   const [mcAnalyzing, setMcAnalyzing] = useState(false);
   const [mcPrompts, setMcPrompts] = useState<Array<{ title: string; style: string; prompt: string }>>([]);
   const [mcModel, setMcModel] = useState<'veo3' | 'veo' | 'luma' | 'kling' | 'ltx' | 'wan' | 'hunyuan'>('wan');
-  const [mcDuration, setMcDuration] = useState<'5s' | '10s' | '15s'>('5s');
+  const [mcDuration, setMcDuration] = useState<'5s' | '8s' | '10s' | '15s'>('5s');
   const [isVerifyingRender, setIsVerifyingRender] = useState(false);
   const [toastNotice, setToastNotice] = useState<string | null>(null);
   const mcFileInputRef = useRef<HTMLInputElement>(null);
@@ -467,7 +467,7 @@ export const MobileToCinematicStudio: React.FC<MobileToCinematicStudioProps> = (
                   <div className="space-y-1">
                     <label className="text-[10px] mono text-white/60">Video Duration:</label>
                     <div className="flex gap-1.5">
-                      {(['5s', '10s', '15s'] as const).map((d) => (
+                      {(['5s', '8s', '10s', '15s'] as const).map((d) => (
                         <button
                           key={d}
                           type="button"

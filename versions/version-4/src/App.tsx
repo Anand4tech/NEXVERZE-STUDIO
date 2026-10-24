@@ -165,6 +165,7 @@ export default function App() {
         setHomeStudioTab('generator');
         setIsStudioExpanded(true);
       }
+      else if (p === '/favorites' || p === '/studio/favorites') setActiveView('favorites');
       else if (p === '/sql') setActiveView('sql');
       else {
         setActiveView('studio');
@@ -902,7 +903,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="w-full max-w-full mx-auto px-3 sm:px-6 lg:px-10 xl:px-12 py-6 sm:py-8 flex-1">
-        {/* Sub-page breadcrumb navigation (for terms, privacy, refund, contact) */}
+        {/* Sub-page breadcrumb navigation (for terms, privacy, refund, contact, favorites, sql) */}
         {activeView !== 'studio' && activeView !== 'studioApp' && activeView !== 'history' && (
           <div className="flex items-center justify-between gap-4 mb-6">
             <div className="flex flex-wrap items-center gap-2">
@@ -927,13 +928,23 @@ export default function App() {
                   Contact Support
                 </span>
               )}
+              {activeView === 'favorites' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-rose-600/30 text-rose-300 border border-rose-500/40">
+                  ❤️ My Liked Creations
+                </span>
+              )}
+              {activeView === 'sql' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-emerald-600/30 text-emerald-300 border border-emerald-500/40">
+                  🗄️ Supabase SQL Schema
+                </span>
+              )}
             </div>
 
             <button
               onClick={() => navigateToView('studio')}
               className="text-xs mono text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>← Back to Studio</span>
+              <span>← Back to Home</span>
             </button>
           </div>
         )}
@@ -1064,6 +1075,13 @@ export default function App() {
                 userEmail={user?.email}
                 userId={user?.id}
                 userCredits={user?.credits ?? 0}
+                user={user}
+                isFreeUser={isFreeUser}
+                onCreditsUpdated={(updatedUser) => setUser(updatedUser)}
+                onOpenPlans={() => {
+                  setInsufficientCreditTrigger(false);
+                  setIsCreditModalOpen(true);
+                }}
                 onSelectPrompt={(p, m, r) => {
                   setPrompt(p);
                   setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
@@ -1071,16 +1089,23 @@ export default function App() {
                   setHomeStudioTab('generator');
                   setActiveStudioTab('text');
                   setIsStudioExpanded(true);
+                  if (activeView !== 'studioApp') {
+                    setActiveView('studioApp');
+                    if (typeof window !== 'undefined') {
+                      window.history.pushState({ view: 'studioApp' }, '', '/studio');
+                    }
+                  }
+                  showGlobalNotice('✨ Loaded generation prompt into Studio workspace!');
                   setTimeout(() => {
                     const el = document.getElementById('studio-workspace-anchor');
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }, 100);
                 }}
                 onNavigateToGallery={() => {
-                  setHomeStudioTab('generator');
+                  navigateToView('studio');
                   setTimeout(() => {
                     document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
-                  }, 120);
+                  }, 150);
                 }}
               />
             ) : (
@@ -1231,11 +1256,19 @@ export default function App() {
                       setIsStudioExpanded(true);
                       showGlobalNotice('✨ Loaded cinematic prompt into Text to Video workspace!');
                     }}
-                    onBackToStudio={() => setIsStudioExpanded(false)}
+                    onBackToStudio={() => {
+                      setActiveStudioTab('text');
+                      setStudioModeTab('single');
+                      setIsStudioExpanded(true);
+                    }}
                   />
                 ) : activeStudioTab === 'watermark' ? (
                   <WatermarkStudio
-                    onBackToStudio={() => setIsStudioExpanded(false)}
+                    onBackToStudio={() => {
+                      setActiveStudioTab('text');
+                      setStudioModeTab('single');
+                      setIsStudioExpanded(true);
+                    }}
                     user={user}
                     onOpenPlans={() => {
                       setInsufficientCreditTrigger(false);
@@ -1686,7 +1719,7 @@ export default function App() {
                               }`}>
                                 <span className={`mono font-black text-xs ${isSelected ? 'text-white' : 'text-purple-300'}`}>{baseCost}cr</span>
                                 <span className={`text-[9px] font-mono ${isSelected ? 'text-white/90 font-bold' : 'text-emerald-400'}`}>
-                                  ₹{Math.round(baseCost * 0.7)}
+                                  ₹{INR_MAPPING[mKey]?.[selectedDuration] || Math.round(baseCost * 0.66)}
                                 </span>
                               </div>
                             </div>
@@ -1775,7 +1808,7 @@ export default function App() {
                               }`}>
                                 <span className={`mono font-black text-xs ${isSelected ? 'text-white' : 'text-purple-300'}`}>{baseCost}cr</span>
                                 <span className={`text-[9px] font-mono ${isSelected ? 'text-white/90 font-bold' : 'text-emerald-400'}`}>
-                                  ₹{Math.round(baseCost * 0.7)}
+                                  ₹{INR_MAPPING[mKey]?.[selectedDuration] || Math.round(baseCost * 0.66)}
                                 </span>
                               </div>
                             </div>
@@ -2035,13 +2068,53 @@ export default function App() {
                     {/* AI Upscale 2x Toggle Button */}
                     <button
                       type="button"
-                      onClick={() => setIsAiUpscaleActive((prev) => !prev)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs mono transition-all border ${
+                      onClick={async () => {
+                        if (isAiUpscaleActive) {
+                          setIsAiUpscaleActive(false);
+                          return;
+                        }
+                        if (!user || (user.credits || 0) < 25) {
+                          setInsufficientCreditTrigger(true);
+                          setIsCreditModalOpen(true);
+                          showGlobalNotice('⚡ AI 4K Upscaling requires 25 credits. Please top up your wallet!');
+                          return;
+                        }
+                        try {
+                          const res = await fetch('/api/upscale', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              videoUrl: currentVideo.video_url,
+                              email: user.email,
+                              userId: user.id,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) {
+                            if (res.status === 402) {
+                              setInsufficientCreditTrigger(true);
+                              setIsCreditModalOpen(true);
+                            }
+                            showGlobalNotice(data.error || 'Upscaling failed.');
+                            return;
+                          }
+                          if (data.remainingCredits !== undefined) {
+                            const updated = { ...user, credits: data.remainingCredits };
+                            setUser(updated);
+                            localStorage.setItem('nexverze_studio_user', JSON.stringify(updated));
+                          }
+                          setIsAiUpscaleActive(true);
+                          showGlobalNotice('✨ 4K UHD AI Upscale activated (25 credits applied)!');
+                        } catch {
+                          showGlobalNotice('Network error while connecting to 4K AI Upscaler.');
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs mono transition-all border cursor-pointer ${
                         isAiUpscaleActive
                           ? 'bg-gradient-to-r from-purple-900/60 to-cyan-900/60 border-cyan-400 text-cyan-200 shadow-md shadow-cyan-900/40 ring-1 ring-cyan-400/40'
                           : 'bg-[#121217] border-[#27272a] hover:border-purple-500/40 text-white/70 hover:text-white'
                       }`}
-                      title="AI Upscale: Apply .ai-upscale-2x-active crisp filter and .ai-upscale-sheen overlay for 4K super-resolution"
+                      title="AI Upscale (25cr): Apply 4K super-resolution sharpening & chromatic sheen"
                     >
                       <Sparkles className={`w-3.5 h-3.5 ${isAiUpscaleActive ? 'text-cyan-300 fill-cyan-300 animate-pulse' : 'text-purple-400'}`} />
                       <span className="font-semibold">AI Upscale</span>
@@ -2052,7 +2125,7 @@ export default function App() {
                             : 'bg-white/10 text-white/40'
                         }`}
                       >
-                        {isAiUpscaleActive ? '4K UHD' : '2x'}
+                        {isAiUpscaleActive ? '4K UHD' : '25cr'}
                       </span>
                     </button>
 
@@ -2167,7 +2240,7 @@ export default function App() {
 
       {/* Main Heading */}
       <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-white tracking-tight flex flex-wrap items-center gap-2">
-        <span>Create 3 Cinematic Videos for</span>
+        <span>Create up to 10 AI Videos for</span>
         <span className="galaxy-text font-black text-xl sm:text-2xl">just ₹99</span>
         <span className="text-white/40 hidden sm:inline">•</span>
         <span className="text-amber-300 font-semibold text-sm sm:text-base">
@@ -2177,7 +2250,7 @@ export default function App() {
 
       {/* High-Intent Value Proposition */}
       <p className="text-xs sm:text-[13px] text-white/80 leading-relaxed max-w-2xl">
-        Get <strong className="text-amber-300 font-mono">150 Credits for ₹99</strong> (generate 3 Luma Ray 3 videos OR 1 Kling v2.5 Turbo video). Switch freely between <strong>Luma Ray 3, Kling Pro, and Google Veo 3.1</strong> from one shared wallet. Top up once, create anytime with zero monthly expiration trap.
+        Get <strong className="text-amber-300 font-mono">150 Credits for ₹99</strong> (generate 10 LTX Fast videos, 2 Luma Ray 3 videos, OR 1 Kling v2.5 Turbo video). Switch freely between <strong>Luma Ray 3, Kling Pro, and Google Veo 3.1</strong> from one shared wallet. Top up once, create anytime with zero monthly expiration trap.
       </p>
 
       {/* Feature Checklist */}
@@ -2250,7 +2323,11 @@ export default function App() {
               setPrompt(p);
               setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
               setSelectedRatio(r);
-              navigateToView('studio');
+              setHomeStudioTab('generator');
+              setActiveStudioTab('text');
+              setIsStudioExpanded(true);
+              navigateToView('studioApp');
+              showGlobalNotice('✨ Loaded liked prompt into Studio workspace!');
             }}
             onNavigateToHome={() => {
               navigateToView('studio');
@@ -2258,7 +2335,7 @@ export default function App() {
                 document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
               }, 120);
             }}
-            onNavigateToStudio={() => navigateToView('studio')}
+            onNavigateToStudio={() => navigateToView('studioApp')}
             onOpenSqlTab={() => navigateToView('sql')}
           />
         )}
@@ -2396,7 +2473,11 @@ export default function App() {
       <WelcomeCreditsModal
         onStartCreating={() => {
           const el = document.getElementById('studio-prompt-textarea');
-          if (el) el.focus();
+          if (el) {
+            el.focus();
+          } else {
+            document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
+          }
         }}
         onClaimTrialPack={() => {
           setInsufficientCreditTrigger(false);

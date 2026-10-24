@@ -250,7 +250,8 @@ export const SequenceBuilderDrawer: React.FC<SequenceBuilderDrawerProps> = ({
   // Delete clip from timeline
   const deleteClip = (id: string) => {
     if (clips.length <= 1) {
-      alert('The sequence must contain at least 1 video clip.');
+      setExportSuccessNotice('The sequence must contain at least 1 video clip.');
+      setTimeout(() => setExportSuccessNotice(null), 3500);
       return;
     }
     const idx = clips.findIndex((c) => c.id === id);

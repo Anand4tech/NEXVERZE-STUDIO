@@ -636,12 +636,12 @@ export const BatchGenerationMode: React.FC<BatchGenerationModeProps> = ({
                             onChange={(e) => handleUpdateItem(item.id, { model: e.target.value as ModelType })}
                             className="bg-[#0f0f17] border border-[#272738] rounded-md px-1.5 py-0.5 text-purple-300 font-bold outline-none cursor-pointer disabled:opacity-50"
                           >
-                            <option value="ltx">LTX-Video (15cr • Fast & ₹10.50)</option>
-                            <option value="luma">Luma Ray 3 (50cr • ₹35)</option>
-                            <option value="wan">Wan 2.1 (45cr • Zero Watermark • ₹31.50)</option>
-                            <option value="hunyuan">HunyuanVideo (65cr • 720p Film • ₹45.50)</option>
-                            <option value="kling">Kling Pro (50cr • ₹35)</option>
-                            <option value="veo">Google Veo Ultra (75cr • 4K • ₹52.50)</option>
+                            <option value="ltx">LTX-Video ({MODEL_COST.ltx[item.duration]}cr • Fast • ₹{INR_MAPPING.ltx[item.duration]})</option>
+                            <option value="luma">Luma Ray 3 ({MODEL_COST.luma[item.duration]}cr • ₹{INR_MAPPING.luma[item.duration]})</option>
+                            <option value="wan">Wan 2.1 ({MODEL_COST.wan[item.duration]}cr • Zero Watermark • ₹{INR_MAPPING.wan[item.duration]})</option>
+                            <option value="hunyuan">HunyuanVideo ({MODEL_COST.hunyuan[item.duration]}cr • 720p Film • ₹{INR_MAPPING.hunyuan[item.duration]})</option>
+                            <option value="kling">Kling Pro ({MODEL_COST.kling[item.duration]}cr • ₹{INR_MAPPING.kling[item.duration]})</option>
+                            <option value="veo">Google Veo Ultra ({MODEL_COST.veo[item.duration]}cr • 4K • ₹{INR_MAPPING.veo[item.duration]})</option>
                           </select>
 
                           {/* Duration Pill */}
@@ -654,6 +654,7 @@ export const BatchGenerationMode: React.FC<BatchGenerationModeProps> = ({
                             <option value="5s">5s</option>
                             <option value="8s">8s</option>
                             <option value="10s">10s</option>
+                            <option value="15s">15s</option>
                           </select>
 
                           {/* Aspect Ratio Pill */}

@@ -186,7 +186,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <span className="flex items-center gap-2">
           <span>Built with love in Chennai</span>
           <span className="px-1.5 py-0.5 rounded bg-purple-500/15 border border-purple-400/25 text-purple-300 text-[10px] font-semibold">
-            v3.0
+            v4.0
           </span>
         </span>
       </div>

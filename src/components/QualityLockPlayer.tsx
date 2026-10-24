@@ -38,7 +38,11 @@ import {
   Instagram,
   Film,
   AlertTriangle,
+  Music,
+  Subtitles,
 } from 'lucide-react';
+import { ViralCaptionsConfig, StoryboardSceneItem } from './TextToVideoPowerSuite';
+import { SmartSoundscapeConfig, smartSoundscapeEngine } from '../lib/smartSoundscape';
 
 export interface KeyframePromptOverride {
   id: string;
@@ -192,6 +196,11 @@ export interface QualityLockPlayerProps {
   onVideoError?: (fallbackUrl: string) => void;
   maxRetries?: number;
   onDiagnosticReport?: (report: VideoDiagnosticReport) => void;
+  viralCaptions?: ViralCaptionsConfig;
+  soundscapeConfig?: SmartSoundscapeConfig;
+  storyboardPlaylist?: StoryboardSceneItem[];
+  activeStoryboardScene?: number;
+  onSelectStoryboardScene?: (scene: StoryboardSceneItem) => void;
 }
 
 const getMediaErrorDetails = (error: MediaError | null) => {
@@ -277,6 +286,11 @@ export const QualityLockPlayer: React.FC<QualityLockPlayerProps> = ({
   onVideoError,
   maxRetries = 3,
   onDiagnosticReport,
+  viralCaptions,
+  soundscapeConfig,
+  storyboardPlaylist,
+  activeStoryboardScene,
+  onSelectStoryboardScene,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1444,6 +1458,40 @@ export const QualityLockPlayer: React.FC<QualityLockPlayerProps> = ({
 
 
 
+      {/* Multi-Scene Connected Storyboard Playlist Bar (when 3-Scene Storyboard has generated clips) */}
+      {storyboardPlaylist && storyboardPlaylist.some((s) => s.status === 'completed' && s.videoUrl) && (
+        <div className="w-full mb-3 p-2.5 rounded-2xl bg-gradient-to-r from-purple-950/70 via-[#141225] to-indigo-950/70 border border-purple-500/40 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-purple-200 mono">
+            <Film className="w-3.5 h-3.5 text-amber-300" />
+            <span>🎞️ 3-Scene Storyboard Playlist:</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {storyboardPlaylist.map((sc) => {
+              const isReady = sc.status === 'completed' && Boolean(sc.videoUrl);
+              const isCurr = activeStoryboardScene === sc.sceneNumber;
+              return (
+                <button
+                  key={sc.sceneNumber}
+                  type="button"
+                  disabled={!isReady}
+                  onClick={() => isReady && onSelectStoryboardScene?.(sc)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] mono font-bold transition-all flex items-center gap-1 cursor-pointer border ${
+                    isCurr
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 border-amber-300 shadow-md'
+                      : isReady
+                      ? 'bg-purple-900/50 text-white border-purple-400/40 hover:bg-purple-800/60'
+                      : 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
+                  }`}
+                >
+                  <span>Scene #{sc.sceneNumber}: {sc.title}</span>
+                  {isReady && <Check className="w-3 h-3" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* The Quality-Locked Video Container */}
       <div
         ref={containerRef}
@@ -1659,6 +1707,60 @@ export const QualityLockPlayer: React.FC<QualityLockPlayerProps> = ({
                 watermarkScale === 'sm' ? 'h-6 sm:h-7' : watermarkScale === 'lg' ? 'h-12 sm:h-14' : 'h-8 sm:h-10'
               }`}
             />
+          </div>
+        )}
+
+        {/* 📱 AUTO VIRAL CAPTIONS / SUBTITLES OVERLAY (Hormozi / Tanglish Neon / Cinema / Kinetic) */}
+        {viralCaptions?.enabled && (
+          <div className="absolute inset-x-3 bottom-16 z-25 pointer-events-none flex flex-col items-center justify-center text-center select-none">
+            {(() => {
+              const rawCaptionText =
+                (viralCaptions.text && viralCaptions.text.trim()) ||
+                prompt ||
+                'Wait for the cinematic twist! 🔥 Shot in 4K Master Quality';
+              const words = rawCaptionText.split(/\s+/).filter(Boolean);
+              const chunkSize = 4;
+              const chunks: string[] = [];
+              for (let i = 0; i < words.length; i += chunkSize) {
+                chunks.push(words.slice(i, i + chunkSize).join(' '));
+              }
+              const activeChunkIdx =
+                chunks.length > 0
+                  ? Math.floor((currentTime * 1.4) % chunks.length)
+                  : 0;
+              const currentPhrase = chunks[activeChunkIdx] || rawCaptionText;
+
+              if (viralCaptions.style === 'hormozi') {
+                return (
+                  <div className="px-3.5 py-1.5 rounded-xl bg-black/75 border-2 border-amber-400 shadow-[0_4px_20px_rgba(0,0,0,0.9)] transform transition-all duration-150 scale-105">
+                    <span className="text-sm sm:text-base font-black uppercase tracking-wider text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">
+                      {currentPhrase} 🔥
+                    </span>
+                  </div>
+                );
+              }
+              if (viralCaptions.style === 'tanglish-neon') {
+                return (
+                  <div className="px-4 py-1.5 rounded-2xl bg-purple-950/80 backdrop-blur-md border border-fuchsia-400/60 shadow-[0_0_25px_rgba(217,70,239,0.8)]">
+                    <span className="text-sm sm:text-base font-extrabold italic bg-gradient-to-r from-amber-300 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent">
+                      ✨ {currentPhrase} ✨
+                    </span>
+                  </div>
+                );
+              }
+              if (viralCaptions.style === 'kinetic-pop') {
+                return (
+                  <div className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black text-xs sm:text-sm uppercase tracking-wide shadow-xl ring-2 ring-white/40">
+                    ⚡ {currentPhrase}
+                  </div>
+                );
+              }
+              return (
+                <div className="px-3.5 py-1 rounded-lg bg-black/85 border border-white/15 text-yellow-200 font-semibold text-xs sm:text-sm shadow-lg">
+                  {currentPhrase}
+                </div>
+              );
+            })()}
           </div>
         )}
 

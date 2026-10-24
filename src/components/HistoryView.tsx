@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StudioGeneration, fetchUserGenerations, deleteStudioGeneration } from '../lib/supabase';
+import { StudioGeneration, StudioUser, fetchUserGenerations, deleteStudioGeneration } from '../lib/supabase';
 import { QualityLockPlayer } from './QualityLockPlayer';
 import { VideoCompareModal, CompareVideoItem } from './VideoCompareModal';
 import { SAMPLE_VIDEOS, VideoSample } from '../lib/videoSamples';
@@ -35,6 +35,10 @@ interface HistoryViewProps {
   userEmail?: string;
   userId?: string;
   userCredits?: number;
+  user?: StudioUser | null;
+  isFreeUser?: boolean;
+  onCreditsUpdated?: (updatedUser: StudioUser) => void;
+  onOpenPlans?: () => void;
   onSelectPrompt?: (prompt: string, model: 'luma' | 'veo3' | 'kling', ratio: '9:16' | '16:9' | '1:1') => void;
   onNavigateToGallery?: () => void;
   initialTab?: 'generations' | 'favorites';
@@ -44,6 +48,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   userEmail,
   userId,
   userCredits = 0,
+  user,
+  isFreeUser = false,
+  onCreditsUpdated,
+  onOpenPlans,
   onSelectPrompt,
   onNavigateToGallery,
   initialTab = 'generations',
@@ -118,7 +126,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this generation from your history?')) return;
     setDeletingId(id);
     try {
       await deleteStudioGeneration(id);
@@ -477,6 +484,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 duration={activeVideo.duration || '5s'}
                 timestamp={activeVideo.created_at}
                 prompt={activeVideo.prompt}
+                isFreeUser={isFreeUser}
+                user={user}
+                onCreditsUpdated={onCreditsUpdated}
+                onOpenPlans={onOpenPlans}
+                onRemix={() => {
+                  onSelectPrompt?.(
+                    activeVideo.prompt,
+                    (activeVideo.model === 'veo' ? 'veo3' : activeVideo.model) as any,
+                    (activeVideo.aspect_ratio || '9:16') as any
+                  );
+                }}
               />
             </div>
           )}
@@ -784,6 +802,17 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 duration={activeFavoriteVideo.duration || '10s'}
                 timestamp={activeFavoriteVideo.favorited_at}
                 prompt={activeFavoriteVideo.prompt}
+                isFreeUser={isFreeUser}
+                user={user}
+                onCreditsUpdated={onCreditsUpdated}
+                onOpenPlans={onOpenPlans}
+                onRemix={() => {
+                  onSelectPrompt?.(
+                    activeFavoriteVideo.prompt,
+                    (activeFavoriteVideo.model === 'veo' ? 'veo3' : activeFavoriteVideo.model) as any,
+                    (activeFavoriteVideo.aspect_ratio || '9:16') as any
+                  );
+                }}
               />
             </div>
           )}

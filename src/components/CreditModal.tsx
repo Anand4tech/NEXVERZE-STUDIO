@@ -23,6 +23,7 @@ interface CreditModalProps {
   onCreditsUpdated: (updatedUser: StudioUser) => void;
   insufficientWarning?: boolean;
   autoTriggerCheckout?: boolean;
+  initialPlanId?: string | null;
 }
 
 export const CreditModal: React.FC<CreditModalProps> = ({
@@ -33,6 +34,7 @@ export const CreditModal: React.FC<CreditModalProps> = ({
   onCreditsUpdated,
   insufficientWarning = false,
   autoTriggerCheckout = false,
+  initialPlanId = null,
 }) => {
   const isNanoPlan = (id: string) => id === 'nano' || id === 'trial';
 
@@ -44,6 +46,9 @@ export const CreditModal: React.FC<CreditModalProps> = ({
   });
 
   const [selectedPlanId, setSelectedPlanId] = useState<string>(() => {
+    if (initialPlanId) {
+      return initialPlanId;
+    }
     if (typeof window !== 'undefined') {
       const isClaimed = localStorage.getItem('has_claimed_nano_trial') === 'true';
       const saved = localStorage.getItem('nexverze_auto_top_up_plan_id');
@@ -74,6 +79,13 @@ export const CreditModal: React.FC<CreditModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    if (initialPlanId) {
+      const targetPack = RAZORPAY_PACKS.find((p) => p.id === initialPlanId) || RAZORPAY_PACKS.find((p) => p.popular);
+      if (targetPack) {
+        setSelectedPlanId(targetPack.id);
+        return;
+      }
+    }
     if (typeof window !== 'undefined') {
       const claimed = localStorage.getItem('has_claimed_nano_trial') === 'true';
       setHasClaimedNanoTrial(claimed);
@@ -81,7 +93,7 @@ export const CreditModal: React.FC<CreditModalProps> = ({
         setSelectedPlanId('starter');
       }
     }
-  }, [isOpen]);
+  }, [isOpen, initialPlanId]);
 
   useEffect(() => {
     if (isOpen && autoTriggerCheckout && !isProcessing && user) {

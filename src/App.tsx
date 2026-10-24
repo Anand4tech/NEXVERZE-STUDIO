@@ -31,7 +31,13 @@ import {
 import { ZipExportModal } from './components/ZipExportModal';
 import { ModelInfoModal } from './components/ModelInfoModal';
 import { CompareModelsDrawer } from './components/CompareModelsDrawer';
-import { ImageUploadGuide } from './components/ImageUploadGuide';
+import {
+  ImageUploadGuide,
+  MotionZoneMode,
+  MOTION_ZONE_OPTIONS,
+  PHOTO_CAMERA_PRESETS,
+  VisionMotionSuggestion,
+} from './components/ImageUploadGuide';
 import { SequenceBuilderDrawer } from './components/SequenceBuilderDrawer';
 import { HelpFaqSection } from './components/HelpFaqSection';
 import { useLanguage } from './context/LanguageContext';
@@ -51,6 +57,17 @@ import { RefundPolicyPage } from './components/pages/RefundPolicyPage';
 import { ContactSupportPage } from './components/pages/ContactSupportPage';
 import { FavoritesPage } from './components/pages/FavoritesPage';
 import { UsageBreakdownCard } from './components/UsageBreakdownCard';
+import {
+  TextToVideoPowerSuite,
+  StoryboardSceneItem,
+  CharacterLockConfig,
+  ViralCaptionsConfig,
+  DraftKeyframeItem,
+  CameraMotionOption,
+  CAMERA_MOTION_OPTIONS,
+  CHARACTER_PRESETS,
+} from './components/TextToVideoPowerSuite';
+import { SmartSoundscapeConfig, smartSoundscapeEngine } from './lib/smartSoundscape';
 import {
   Sparkles,
   Zap,
@@ -165,6 +182,7 @@ export default function App() {
         setHomeStudioTab('generator');
         setIsStudioExpanded(true);
       }
+      else if (p === '/favorites' || p === '/studio/favorites') setActiveView('favorites');
       else if (p === '/sql') setActiveView('sql');
       else {
         setActiveView('studio');
@@ -240,6 +258,92 @@ export default function App() {
     voiceVolume: 90,
     bgmVolume: 40,
   });
+
+  // ============================================================================
+  // 6 NEW TEXT-TO-VIDEO POWER SUITE STATES
+  // ============================================================================
+  // 1. ⚡ Draft Keyframe Preview (8 Cr / ₹5 per frame, up to 5 frames)
+  const [draftFrames, setDraftFrames] = useState<DraftKeyframeItem[]>([]);
+  const [selectedDraftFrameIndex, setSelectedDraftFrameIndex] = useState<number>(0);
+  const [isGeneratingKeyframe, setIsGeneratingKeyframe] = useState<boolean>(false);
+
+  // 2. 🎞️ Multi-Scene Storyboard Mode (3 Connected Scenes)
+  const [isStoryboardMode, setIsStoryboardMode] = useState<boolean>(false);
+  const [storyIdea, setStoryIdea] = useState<string>(
+    'A boy finds a magical glowing watch on Chennai Marina beach at sunset'
+  );
+  const [isSplittingStory, setIsSplittingStory] = useState<boolean>(false);
+  const [isGeneratingStoryboard, setIsGeneratingStoryboard] = useState<boolean>(false);
+  const [activeStoryboardScene, setActiveStoryboardScene] = useState<number>(1);
+  const [storyboardScenes, setStoryboardScenes] = useState<StoryboardSceneItem[]>([
+    {
+      sceneNumber: 1,
+      title: 'Intro & Setup',
+      cameraMove: 'Wide Establishing Drone',
+      duration: '5s',
+      prompt:
+        'Scene 1 (Intro): Wide cinematic establishing shot of a young boy walking along Chennai Marina beach at golden sunset, discovering a mysterious glowing watch buried in the wet sand, 8k photorealistic.',
+      status: 'idle',
+    },
+    {
+      sceneNumber: 2,
+      title: 'Dynamic Action',
+      cameraMove: 'Smooth Gimbal Push-In',
+      duration: '5s',
+      prompt:
+        'Scene 2 (Action): Medium close-up tracking shot as the boy touches the magical watch, holographic golden time-portals swirl around him in slow motion, waves freezing in mid-air, 8k.',
+      status: 'idle',
+    },
+    {
+      sceneNumber: 3,
+      title: 'Epic Climax',
+      cameraMove: '360° Hero Orbit',
+      duration: '5s',
+      prompt:
+        'Scene 3 (Climax): Iconic 360-degree circular hero orbit around the boy as a futuristic neon skybridge materializes above Chennai beach, volumetric light beams, IMAX 8k.',
+      status: 'idle',
+    },
+  ]);
+
+  // 3. 🧑 Consistent Character Lock (+10 Cr Extra)
+  const [characterLock, setCharacterLock] = useState<CharacterLockConfig>({
+    enabled: false,
+    characterTag: CHARACTER_PRESETS[0].name,
+    referenceImageUrl: CHARACTER_PRESETS[0].avatarUrl,
+    traitDescription: CHARACTER_PRESETS[0].traits,
+    presetId: CHARACTER_PRESETS[0].id,
+  });
+
+  // 4. 🎥 Visual Camera Path Director (0 Cr / Free)
+  const [selectedCameraMotion, setSelectedCameraMotion] = useState<string>('drone');
+
+  // 5. 🎵 Smart Soundscape Auto BGM & SFX Sync (+5 Cr Extra)
+  const [soundscapeConfig, setSoundscapeConfig] = useState<SmartSoundscapeConfig>({
+    enabled: false,
+    bgmMood: 'mass',
+    sfxType: 'rain',
+    bgmVolume: 75,
+    sfxVolume: 65,
+  });
+
+  // 6. 📱 Auto Viral Captions / Subtitles Overlay (+5 Cr Extra)
+  const [viralCaptions, setViralCaptions] = useState<ViralCaptionsConfig>({
+    enabled: false,
+    style: 'hormozi',
+    text: '',
+    position: 'bottom',
+  });
+
+  // ============================================================================
+  // IMAGE-TO-VIDEO PRO POWER SUITE STATES
+  // ============================================================================
+  const [keyframeBridgeEnabled, setKeyframeBridgeEnabled] = useState<boolean>(false);
+  const [startFrameIndex, setStartFrameIndex] = useState<number>(0);
+  const [endFrameIndex, setEndFrameIndex] = useState<number>(1);
+  const [motionZoneMode, setMotionZoneMode] = useState<MotionZoneMode>('full');
+  const [selectedPhotoCameraPreset, setSelectedPhotoCameraPreset] = useState<string>('none');
+  const [isEnhancingPhoto4K, setIsEnhancingPhoto4K] = useState<boolean>(false);
+  const [isAnalyzingPhotoMotion, setIsAnalyzingPhotoMotion] = useState<boolean>(false);
 
   // Studio Tab State ('text' | 'image' | 'mobile-to-cinematic' | 'watermark')
   // Default to false on the Home Page so no workspace is shown until a button is clicked
@@ -356,6 +460,7 @@ export default function App() {
 
   // Modals & Drawers
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
+  const [preselectedPlanId, setPreselectedPlanId] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isZipModalOpen, setIsZipModalOpen] = useState(false);
   const [insufficientCreditTrigger, setInsufficientCreditTrigger] = useState(false);
@@ -444,9 +549,22 @@ export default function App() {
     };
   }, []);
 
-  // Compute live credit cost
-  const liveCreditCost = MODEL_COST[selectedModel]?.[selectedDuration] || 50;
-  const inrEstimate = INR_MAPPING[selectedModel]?.[selectedDuration] || Math.round(liveCreditCost * 0.7);
+  // Compute live credit cost (Base Model Cost + Active Power Suite Add-ons across Text & Image tabs)
+  const baseVideoCreditCost = MODEL_COST[selectedModel]?.[selectedDuration] || 50;
+  const sharedAudioCaptionAddonCredits =
+    (activeStudioTab === 'text' || activeStudioTab === 'image')
+      ? (soundscapeConfig.enabled ? 5 : 0) + (viralCaptions.enabled ? 5 : 0)
+      : 0;
+  const textSuiteAddonCredits =
+    activeStudioTab === 'text' ? (characterLock.enabled ? 10 : 0) : 0;
+  const imageSuiteAddonCredits =
+    activeStudioTab === 'image'
+      ? (keyframeBridgeEnabled && imageUrls.length >= 2 ? 10 : 0) +
+        (motionZoneMode !== 'full' ? 5 : 0)
+      : 0;
+  const liveCreditCost =
+    baseVideoCreditCost + sharedAudioCaptionAddonCredits + textSuiteAddonCredits + imageSuiteAddonCredits;
+  const inrEstimate = Math.round(liveCreditCost * 0.66);
 
   // Check if current user is on Free Tier (PRO users have unlimited unwatermarked 4K access)
   const isFreeUser = typeof window !== 'undefined'
@@ -511,6 +629,9 @@ export default function App() {
       } else {
         setImageUrl(null);
       }
+      if (updated.length < 2) {
+        setKeyframeBridgeEnabled(false);
+      }
       return updated;
     });
   };
@@ -518,6 +639,116 @@ export default function App() {
   const handleClearAllImages = () => {
     setImageUrls([]);
     setImageUrl(null);
+    setKeyframeBridgeEnabled(false);
+  };
+
+  const handleSelectActiveImage = (selectedImgUrl: string, _index: number) => {
+    setImageUrl(selectedImgUrl);
+  };
+
+  const handleUpdateImageAt = (index: number, newImgUrl: string) => {
+    setImageUrls((prev) => {
+      if (prev.length === 0) return [newImgUrl];
+      return prev.map((item, i) => (i === index ? newImgUrl : item));
+    });
+    setImageUrl(newImgUrl);
+  };
+
+  // 🪄 Feature #2: 1-Click AI Photo Enhance & 4K Relight (8 Credits / ₹5.00)
+  const handleEnhancePhoto4K = async (targetImgUrl: string, index: number): Promise<string | null> => {
+    if (!user || (user.credits || 0) < 8) {
+      setInsufficientCreditTrigger(true);
+      setIsCreditModalOpen(true);
+      showGlobalNotice('🪄 4K Photo Relight & Enhance requires 8 Credits (₹5). Please top up your wallet!');
+      return null;
+    }
+
+    setIsEnhancingPhoto4K(true);
+    try {
+      const res = await fetch('/api/enhance-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: targetImgUrl,
+          mode: 'relight_4k',
+          userId: user.id,
+          email: user.email,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 402) {
+          setInsufficientCreditTrigger(true);
+          setIsCreditModalOpen(true);
+        }
+        showGlobalNotice(data.error || 'Failed to enhance photo.');
+        return null;
+      }
+
+      if (typeof data.remaining_credits === 'number') {
+        const updatedUser = { ...user, credits: data.remaining_credits };
+        setUser(updatedUser);
+        localStorage.setItem('nexverze_studio_user', JSON.stringify(updatedUser));
+      }
+
+      const enhancedUrl = data.enhanced_image_url || targetImgUrl;
+      handleUpdateImageAt(index, enhancedUrl);
+      showGlobalNotice('✨ Photo enhanced with 4K Studio Relight & HDR Clarity (-8 Cr)!');
+      return enhancedUrl;
+    } catch {
+      showGlobalNotice('Network error while connecting to 4K Photo Enhancer.');
+      return null;
+    } finally {
+      setIsEnhancingPhoto4K(false);
+    }
+  };
+
+  // 🧠 Feature #3: AI Vision Auto-Prompt from Photo (5 Credits / ₹3.30)
+  const handleAnalyzePhotoMotion = async (targetImgUrl: string): Promise<VisionMotionSuggestion[] | null> => {
+    if (!user || (user.credits || 0) < 5) {
+      setInsufficientCreditTrigger(true);
+      setIsCreditModalOpen(true);
+      showGlobalNotice('🧠 AI Vision Auto-Prompt requires 5 Credits (₹3). Please top up your wallet!');
+      return null;
+    }
+
+    setIsAnalyzingPhotoMotion(true);
+    try {
+      const res = await fetch('/api/analyze-photo-motion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: targetImgUrl,
+          aspect_ratio: selectedRatio,
+          currentPrompt: prompt,
+          userId: user.id,
+          email: user.email,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 402) {
+          setInsufficientCreditTrigger(true);
+          setIsCreditModalOpen(true);
+        }
+        showGlobalNotice(data.error || 'Failed to analyze photo motion.');
+        return null;
+      }
+
+      if (typeof data.remaining_credits === 'number') {
+        const updatedUser = { ...user, credits: data.remaining_credits };
+        setUser(updatedUser);
+        localStorage.setItem('nexverze_studio_user', JSON.stringify(updatedUser));
+      }
+
+      showGlobalNotice('🧠 AI Vision analyzed your photo & generated 3 Director Motion Prompts (-5 Cr)!');
+      return data.suggestions || [];
+    } catch {
+      showGlobalNotice('Network error while analyzing photo motion.');
+      return null;
+    } finally {
+      setIsAnalyzingPhotoMotion(false);
+    }
   };
 
   // REMIX HANDLER: Clones current video prompt and configuration settings into Studio input fields
@@ -718,10 +949,199 @@ export default function App() {
     }, 450);
   };
 
+  // ⚡ HANDLER: DRAFT KEYFRAME PREVIEW (8 Cr / ₹5 per Frame, up to 5 frames max)
+  const handleGenerateDraftKeyframe = async () => {
+    if (!prompt.trim()) {
+      setGenerationError('Please enter a text prompt before generating a Keyframe Preview.');
+      return;
+    }
+    if (draftFrames.length >= 5) {
+      showGlobalNotice('⚡ Max 5/5 Frames Reached — Pick your favorite frame above to animate!');
+      return;
+    }
+
+    const KEYFRAME_COST = 8;
+    const currentCredits = user ? user.credits : 0;
+    if (currentCredits < KEYFRAME_COST) {
+      setInsufficientCreditTrigger(true);
+      setIsCreditModalOpen(true);
+      showGlobalNotice('⚡ Draft Keyframe Preview requires 8 Credits (₹5). Please top up your wallet!');
+      return;
+    }
+
+    setGenerationError(null);
+    setIsGeneratingKeyframe(true);
+    const nextFrameNumber = draftFrames.length + 1;
+
+    try {
+      const res = await fetch('/api/generate-keyframe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          aspect_ratio: selectedRatio,
+          frameNumber: nextFrameNumber,
+          characterTag: characterLock.enabled ? characterLock.characterTag : undefined,
+          characterTraits: characterLock.enabled ? characterLock.traitDescription : undefined,
+          userId: user?.id,
+          email: user?.email,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.image_url) {
+        if (res.status === 401 || res.status === 402) {
+          setInsufficientCreditTrigger(true);
+          setIsCreditModalOpen(true);
+        }
+        throw new Error(data.error || 'Failed to generate keyframe preview');
+      }
+
+      const newFrame: DraftKeyframeItem = {
+        frameNumber: nextFrameNumber,
+        imageUrl: data.image_url,
+        angleLabel: data.angle_label || `Camera Angle #${nextFrameNumber}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setDraftFrames((prev) => {
+        const updated = [...prev, newFrame].slice(0, 5);
+        setSelectedDraftFrameIndex(updated.length - 1);
+        return updated;
+      });
+
+      if (user) {
+        const remaining =
+          typeof data.remaining_credits === 'number'
+            ? data.remaining_credits
+            : Math.max(0, (user.credits || 0) - KEYFRAME_COST);
+        const updatedUser = { ...user, credits: remaining };
+        setUser(updatedUser);
+        try {
+          localStorage.setItem('nexverze_studio_user', JSON.stringify(updatedUser));
+        } catch {}
+      }
+
+      showGlobalNotice(`⚡ Frame #${nextFrameNumber}/5 generated (-8 Cr / ₹5)! Select it to animate or generate another angle.`);
+    } catch (err: any) {
+      setGenerationError(err?.message || 'Keyframe preview failed.');
+    } finally {
+      setIsGeneratingKeyframe(false);
+    }
+  };
+
+  // ✅ HANDLER: USE SELECTED DRAFT FRAME & GENERATE FULL VIDEO
+  const handleUseFrameAndGenerateVideo = (frame: DraftKeyframeItem) => {
+    setImageUrl(frame.imageUrl);
+    showGlobalNotice(`✅ Locked Draft Frame #${frame.frameNumber}/5! Starting full video render...`);
+    handleGenerate(frame.imageUrl, prompt.trim());
+  };
+
+  // 🎞️ HANDLER: SPLIT 1-LINE STORY INTO 3 CONNECTED SCENES
+  const handleSplitStoryToScenes = async () => {
+    if (!storyIdea.trim()) {
+      setGenerationError('Please enter a 1-line story idea to split into 3 scenes.');
+      return;
+    }
+    setIsSplittingStory(true);
+    setGenerationError(null);
+    try {
+      const res = await fetch('/api/split-storyboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyIdea: storyIdea.trim(),
+          characterTag: characterLock.enabled ? characterLock.characterTag : undefined,
+          characterTraits: characterLock.enabled ? characterLock.traitDescription : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.scenes) && data.scenes.length === 3) {
+        setStoryboardScenes(
+          data.scenes.map((sc: any, idx: number) => ({
+            sceneNumber: ((idx + 1) as 1 | 2 | 3),
+            title: sc.title || `Scene ${idx + 1}`,
+            cameraMove: sc.cameraMove || 'Cinematic Tracking',
+            duration: selectedDuration,
+            prompt: sc.prompt || '',
+            status: 'idle',
+          }))
+        );
+        showGlobalNotice('✨ Story split into 3 connected cinematic scenes! Review or click Generate All 3 Scenes.');
+      }
+    } catch (err: any) {
+      setGenerationError('Failed to split story into scenes.');
+    } finally {
+      setIsSplittingStory(false);
+    }
+  };
+
+  // 🎞️ HANDLER: GENERATE SINGLE SCENE OR ALL 3 SCENES IN STORYBOARD MODE
+  const handleGenerateSingleStoryboardScene = async (sceneNum: 1 | 2 | 3) => {
+    const targetScene = storyboardScenes.find((s) => s.sceneNumber === sceneNum);
+    if (!targetScene) return;
+
+    const currentCredits = user ? user.credits : 0;
+    if (currentCredits < liveCreditCost) {
+      setInsufficientCreditTrigger(true);
+      setIsCreditModalOpen(true);
+      return;
+    }
+
+    setStoryboardScenes((prev) =>
+      prev.map((s) => (s.sceneNumber === sceneNum ? { ...s, status: 'generating' } : s))
+    );
+
+    await handleGenerate(undefined, targetScene.prompt, sceneNum);
+  };
+
+  const handleGenerateAllStoryboardScenes = async () => {
+    const total3SceneCost = liveCreditCost * 3;
+    const currentCredits = user ? user.credits : 0;
+    if (currentCredits < total3SceneCost) {
+      setInsufficientCreditTrigger(true);
+      setIsCreditModalOpen(true);
+      showGlobalNotice(`🎞️ 3-Scene Storyboard requires ${total3SceneCost} Credits (3 × ${liveCreditCost}cr). Please top up!`);
+      return;
+    }
+
+    setIsGeneratingStoryboard(true);
+    try {
+      for (const scene of storyboardScenes) {
+        setStoryboardScenes((prev) =>
+          prev.map((s) => (s.sceneNumber === scene.sceneNumber ? { ...s, status: 'generating' } : s))
+        );
+        await handleGenerate(undefined, scene.prompt, scene.sceneNumber);
+      }
+      showGlobalNotice('🎬 All 3 Connected Storyboard Scenes generated! Use the Storyboard Playlist bar above the player.');
+    } finally {
+      setIsGeneratingStoryboard(false);
+    }
+  };
+
   // REAL GENERATION: calls /api/generate (FAL ONLY)
-  const handleGenerate = async () => {
-    const effectiveImageUrl = activeStudioTab === 'image' ? imageUrl : null;
-    if (!prompt.trim() && !effectiveImageUrl) {
+  const handleGenerate = async (
+    overrideKeyframeUrl?: string,
+    overridePromptText?: string,
+    storyboardSceneNum?: 1 | 2 | 3,
+    overrideEndImageUrl?: string
+  ) => {
+    const baseTextPrompt = overridePromptText !== undefined ? overridePromptText : prompt;
+    const effectiveImageUrl =
+      overrideKeyframeUrl ||
+      (activeStudioTab === 'image'
+        ? imageUrl
+        : activeStudioTab === 'text' && characterLock.enabled && characterLock.referenceImageUrl
+        ? characterLock.referenceImageUrl
+        : null);
+
+    const effectiveEndImageUrl =
+      overrideEndImageUrl ||
+      (activeStudioTab === 'image' && keyframeBridgeEnabled && imageUrls.length >= 2
+        ? imageUrls[endFrameIndex] || imageUrls[1]
+        : undefined);
+
+    if (!baseTextPrompt.trim() && !effectiveImageUrl) {
       setGenerationError(
         activeStudioTab === 'image'
           ? 'Please upload an image or provide instructions.'
@@ -729,6 +1149,34 @@ export default function App() {
       );
       return;
     }
+
+    // Build enriched prompt with Character Lock & Camera Motion Director (Text mode) or Motion Zone Lock & 3D Camera Preset (Image mode)
+    const camOption = CAMERA_MOTION_OPTIONS.find((c) => c.id === selectedCameraMotion);
+    const charPrefix =
+      activeStudioTab === 'text' && characterLock.enabled
+        ? `[Character Lock: ${characterLock.characterTag} - ${characterLock.traitDescription}] `
+        : '';
+    const camSuffix =
+      activeStudioTab === 'text' && camOption ? `, ${camOption.promptTag}` : '';
+
+    const motionZoneObj = MOTION_ZONE_OPTIONS.find((z) => z.id === motionZoneMode);
+    const zonePrefix =
+      activeStudioTab === 'image' && motionZoneObj && motionZoneObj.promptConstraint
+        ? `${motionZoneObj.promptConstraint} `
+        : '';
+    const bridgePrefix =
+      activeStudioTab === 'image' && keyframeBridgeEnabled && effectiveEndImageUrl
+        ? `[KEYFRAME BRIDGE MORPH: Smoothly transition and morph from Start Frame #${startFrameIndex + 1} into End Frame #${endFrameIndex + 1}] `
+        : '';
+    const photoCamObj = PHOTO_CAMERA_PRESETS.find((p) => p.id === selectedPhotoCameraPreset);
+    const photoCamSuffix =
+      activeStudioTab === 'image' && photoCamObj && photoCamObj.promptDirective
+        ? `, ${photoCamObj.promptDirective}`
+        : '';
+
+    const finalPromptToSend = `${charPrefix}${zonePrefix}${bridgePrefix}${
+      baseTextPrompt.trim() || 'Cinematic 8k photorealistic motion'
+    }${camSuffix}${photoCamSuffix}`;
 
     setGenerationError(null);
     const requiredCredits = liveCreditCost;
@@ -781,14 +1229,23 @@ export default function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt: prompt.trim(),
+          prompt: finalPromptToSend,
           model: selectedModel,
           duration: selectedDuration,
-          imageUrl: (activeStudioTab === 'image' ? imageUrl : null) || undefined,
+          imageUrl: effectiveImageUrl || undefined,
+          endImageUrl: effectiveEndImageUrl || undefined,
           aspect_ratio: selectedRatio,
           motion_intensity: motionIntensity,
           scene_transition: sceneTransition,
           audio_config: audioConfig.enabled ? audioConfig : undefined,
+          character_lock_enabled: activeStudioTab === 'text' && characterLock.enabled,
+          smart_soundscape_enabled:
+            (activeStudioTab === 'text' || activeStudioTab === 'image') && soundscapeConfig.enabled,
+          viral_captions_enabled:
+            (activeStudioTab === 'text' || activeStudioTab === 'image') && viralCaptions.enabled,
+          keyframe_bridge_enabled:
+            activeStudioTab === 'image' && keyframeBridgeEnabled && imageUrls.length >= 2,
+          motion_zone_mode: activeStudioTab === 'image' ? motionZoneMode : 'full',
           userId: user?.id,
           email: user?.email,
         }),
@@ -814,19 +1271,37 @@ export default function App() {
       // On Success: Set Video Output
       const newVideoSample: VideoSample = {
         id: `gen-${Date.now()}`,
-        title: prompt.slice(0, 30) + '...',
+        title: storyboardSceneNum
+          ? `Scene #${storyboardSceneNum}: ${baseTextPrompt.slice(0, 24)}...`
+          : (baseTextPrompt || 'Image-to-Video Render').slice(0, 30) + '...',
         model: (selectedModel === 'veo' ? 'veo3' : selectedModel) as any,
-        prompt: prompt.trim(),
+        prompt: finalPromptToSend,
         aspect_ratio: selectedRatio,
         video_url: data.video_url,
-        thumbnail_url: imageUrl || currentVideo.thumbnail_url,
+        thumbnail_url: effectiveImageUrl || currentVideo.thumbnail_url,
         duration: selectedDuration,
         created_at: new Date().toISOString(),
       };
       setCurrentVideo(newVideoSample);
 
+      if (storyboardSceneNum) {
+        setActiveStoryboardScene(storyboardSceneNum);
+        setStoryboardScenes((prev) =>
+          prev.map((s) =>
+            s.sceneNumber === storyboardSceneNum
+              ? { ...s, status: 'completed', videoUrl: data.video_url }
+              : s
+          )
+        );
+      }
+
+      // If Smart Soundscape is enabled, start synced BGM & SFX automatically in both Text & Image modes
+      if ((activeStudioTab === 'text' || activeStudioTab === 'image') && soundscapeConfig.enabled) {
+        smartSoundscapeEngine.start(soundscapeConfig);
+      }
+
       // Save prompt to Recent Prompts (Last 5 successful)
-      saveSuccessfulPrompt(prompt.trim(), selectedModel, selectedDuration, selectedRatio);
+      saveSuccessfulPrompt(baseTextPrompt.trim(), selectedModel, selectedDuration, selectedRatio);
 
       // Synchronize credits using server-authoritative balance (single source of truth)
       if (user) {
@@ -848,12 +1323,12 @@ export default function App() {
           id: crypto.randomUUID(),
           user_id: user.id,
           email: user.email,
-          prompt: prompt.trim(),
+          prompt: finalPromptToSend,
           model: selectedModel,
           duration: selectedDuration,
           credits_used: requiredCredits,
           video_url: data.video_url,
-          image_url: imageUrl || undefined,
+          image_url: effectiveImageUrl || undefined,
           status: 'completed',
           aspect_ratio: selectedRatio,
           created_at: new Date().toISOString(),
@@ -866,6 +1341,11 @@ export default function App() {
     } catch (err: any) {
       console.error('Generation error:', err);
       clearInterval(progressInterval);
+      if (storyboardSceneNum) {
+        setStoryboardScenes((prev) =>
+          prev.map((s) => (s.sceneNumber === storyboardSceneNum ? { ...s, status: 'error' } : s))
+        );
+      }
       setGenerationError(err?.message || 'Generation failed, try again');
     } finally {
       setIsGenerating(false);
@@ -888,6 +1368,12 @@ export default function App() {
         activeView={activeView}
         setActiveView={navigateToView}
         onOpenCreditModal={() => {
+          setPreselectedPlanId(null);
+          setInsufficientCreditTrigger(false);
+          setIsCreditModalOpen(true);
+        }}
+        onQuickBuyPopular={() => {
+          setPreselectedPlanId('pro');
           setInsufficientCreditTrigger(false);
           setIsCreditModalOpen(true);
         }}
@@ -902,7 +1388,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="w-full max-w-full mx-auto px-3 sm:px-6 lg:px-10 xl:px-12 py-6 sm:py-8 flex-1">
-        {/* Sub-page breadcrumb navigation (for terms, privacy, refund, contact) */}
+        {/* Sub-page breadcrumb navigation (for terms, privacy, refund, contact, favorites, sql) */}
         {activeView !== 'studio' && activeView !== 'studioApp' && activeView !== 'history' && (
           <div className="flex items-center justify-between gap-4 mb-6">
             <div className="flex flex-wrap items-center gap-2">
@@ -927,13 +1413,23 @@ export default function App() {
                   Contact Support
                 </span>
               )}
+              {activeView === 'favorites' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-rose-600/30 text-rose-300 border border-rose-500/40">
+                  ❤️ My Liked Creations
+                </span>
+              )}
+              {activeView === 'sql' && (
+                <span className="px-3.5 py-1.5 rounded-xl text-xs mono font-semibold bg-emerald-600/30 text-emerald-300 border border-emerald-500/40">
+                  🗄️ Supabase SQL Schema
+                </span>
+              )}
             </div>
 
             <button
               onClick={() => navigateToView('studio')}
               className="text-xs mono text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
             >
-              <span>← Back to Studio</span>
+              <span>← Back to Home</span>
             </button>
           </div>
         )}
@@ -1019,9 +1515,29 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Quick Single Studio / Batch Queue Switcher */}
-              {homeStudioTab === 'generator' && (
-                <div className="flex items-center gap-2 self-end sm:self-auto">
+              {/* Studio Header Credit Balance + Quick Buy + Single/Batch Switcher */}
+              <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                <div className="flex items-center gap-1.5 bg-[#0d0d14]/90 px-2.5 py-1.5 rounded-2xl border border-purple-500/30">
+                  <Coins className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="text-xs font-bold mono text-white">
+                    {user?.credits ?? 0} cr
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreselectedPlanId('pro');
+                      setInsufficientCreditTrigger(false);
+                      setIsCreditModalOpen(true);
+                    }}
+                    className="ml-1 px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:from-amber-300 hover:to-pink-400 text-slate-950 font-black text-[10px] mono uppercase tracking-wide flex items-center gap-1 shadow-sm transition-all cursor-pointer active:scale-95"
+                    title="Open Top-Up Modal pre-selected with Most Popular PRO STUDIO Pack"
+                  >
+                    <Zap className="w-3 h-3 fill-slate-950 text-slate-950" />
+                    <span>Quick Buy</span>
+                  </button>
+                </div>
+
+                {homeStudioTab === 'generator' && (
                   <div className="flex items-center bg-[#0d0d14] p-1 rounded-2xl border border-purple-500/30">
                     <button
                       type="button"
@@ -1054,8 +1570,8 @@ export default function App() {
                       <span>⚡ Batch Queue</span>
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* TAB CONTENT: History Vault vs Studio Generator Workspace */}
@@ -1064,6 +1580,13 @@ export default function App() {
                 userEmail={user?.email}
                 userId={user?.id}
                 userCredits={user?.credits ?? 0}
+                user={user}
+                isFreeUser={isFreeUser}
+                onCreditsUpdated={(updatedUser) => setUser(updatedUser)}
+                onOpenPlans={() => {
+                  setInsufficientCreditTrigger(false);
+                  setIsCreditModalOpen(true);
+                }}
                 onSelectPrompt={(p, m, r) => {
                   setPrompt(p);
                   setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
@@ -1071,16 +1594,23 @@ export default function App() {
                   setHomeStudioTab('generator');
                   setActiveStudioTab('text');
                   setIsStudioExpanded(true);
+                  if (activeView !== 'studioApp') {
+                    setActiveView('studioApp');
+                    if (typeof window !== 'undefined') {
+                      window.history.pushState({ view: 'studioApp' }, '', '/studio');
+                    }
+                  }
+                  showGlobalNotice('✨ Loaded generation prompt into Studio workspace!');
                   setTimeout(() => {
                     const el = document.getElementById('studio-workspace-anchor');
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }, 100);
                 }}
                 onNavigateToGallery={() => {
-                  setHomeStudioTab('generator');
+                  navigateToView('studio');
                   setTimeout(() => {
                     document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
-                  }, 120);
+                  }, 150);
                 }}
               />
             ) : (
@@ -1216,6 +1746,7 @@ export default function App() {
                 ) : activeStudioTab === 'mobile-to-cinematic' ? (
                   <MobileToCinematicStudio
                     user={user}
+                    onUpdateUser={(updatedUser) => setUser(updatedUser)}
                     onOpenAuth={() => setIsAuthModalOpen(true)}
                     onOpenPlans={() => {
                       setInsufficientCreditTrigger(false);
@@ -1224,19 +1755,68 @@ export default function App() {
                     setIsCreditModalOpen={setIsCreditModalOpen}
                     onRemixVideo={(cfg) => {
                       setPrompt(cfg.prompt);
-                      setSelectedModel(cfg.modelName as any);
-                      setSelectedDuration(cfg.duration as any);
+                      const mappedModel = (cfg.modelName === 'veo3' ? 'veo' : cfg.modelName) as ModelType;
+                      setSelectedModel(mappedModel);
+                      setSelectedDuration(cfg.duration as DurationType);
                       setSelectedRatio(cfg.aspectRatio);
-                      setActiveStudioTab('text');
-                      setIsStudioExpanded(true);
-                      showGlobalNotice('✨ Loaded cinematic prompt into Text to Video workspace!');
+                      if (cfg.soundscapeConfig) {
+                        setSoundscapeConfig(cfg.soundscapeConfig);
+                      }
+                      if (cfg.viralCaptions) {
+                        setViralCaptions(cfg.viralCaptions);
+                      }
+                      if (cfg.heroFrameUrl) {
+                        setImageUrl(cfg.heroFrameUrl);
+                        if (cfg.endFrameUrl && cfg.motionBridgeEnabled) {
+                          setImageUrls([cfg.heroFrameUrl, cfg.endFrameUrl]);
+                          setKeyframeBridgeEnabled(true);
+                          setStartFrameIndex(0);
+                          setEndFrameIndex(1);
+                        } else {
+                          setImageUrls((prev) =>
+                            prev.includes(cfg.heroFrameUrl!)
+                              ? prev
+                              : [cfg.heroFrameUrl!, ...prev].slice(0, 10)
+                          );
+                        }
+                        setActiveStudioTab('image');
+                        setIsStudioExpanded(true);
+                        showGlobalNotice('🔒 Locked Mobile Hero Frame + Cinema Prompt loaded into Image-to-Video Studio!');
+                      } else {
+                        setActiveStudioTab('text');
+                        setIsStudioExpanded(true);
+                        showGlobalNotice('✨ Loaded cinematic prompt into Text-to-Video workspace!');
+                      }
                     }}
-                    onBackToStudio={() => setIsStudioExpanded(false)}
+                    onSelectRenderedVideo={(vid) => {
+                      setCurrentVideo({
+                        id: `mc-gen-${Date.now()}`,
+                        title: `Mobile-to-Cinema: ${vid.prompt.slice(0, 26)}...`,
+                        model: (vid.model === 'veo' ? 'veo3' : vid.model) as any,
+                        prompt: vid.prompt,
+                        aspect_ratio: vid.aspectRatio,
+                        video_url: vid.videoUrl,
+                        thumbnail_url: vid.thumbnailUrl || currentVideo.thumbnail_url,
+                        duration: vid.duration,
+                        created_at: new Date().toISOString(),
+                      });
+                    }}
+                    onBackToStudio={() => {
+                      setActiveStudioTab('text');
+                      setStudioModeTab('single');
+                      setIsStudioExpanded(true);
+                    }}
                   />
                 ) : activeStudioTab === 'watermark' ? (
                   <WatermarkStudio
-                    onBackToStudio={() => setIsStudioExpanded(false)}
+                    onBackToStudio={() => {
+                      setActiveStudioTab('text');
+                      setStudioModeTab('single');
+                      setIsStudioExpanded(true);
+                    }}
                     user={user}
+                    onUpdateUser={(updatedUser) => setUser(updatedUser)}
+                    onOpenAuth={() => setIsAuthModalOpen(true)}
                     onOpenPlans={() => {
                       setInsufficientCreditTrigger(false);
                       setIsCreditModalOpen(true);
@@ -1268,9 +1848,12 @@ export default function App() {
                           onRemoveImage={() => {
                             setImageUrl(null);
                             setImageUrls([]);
+                            setKeyframeBridgeEnabled(false);
                           }}
                           onRemoveImageAt={handleRemoveImageAt}
                           onClearAllImages={handleClearAllImages}
+                          onSelectActiveImage={handleSelectActiveImage}
+                          onUpdateImageAt={handleUpdateImageAt}
                           selectedRatio={selectedRatio}
                           onRatioChange={setSelectedRatio}
                           prompt={prompt}
@@ -1278,7 +1861,27 @@ export default function App() {
                           onEnhancePrompt={handleEnhancePrompt}
                           isEnhancingPrompt={isEnhancingPrompt}
                           promptEnhancedSuccess={promptEnhancedSuccess}
-                          onGenerate={handleGenerate}
+                          keyframeBridgeEnabled={keyframeBridgeEnabled}
+                          onToggleKeyframeBridge={setKeyframeBridgeEnabled}
+                          startFrameIndex={startFrameIndex}
+                          endFrameIndex={endFrameIndex}
+                          onSelectStartFrameIndex={setStartFrameIndex}
+                          onSelectEndFrameIndex={setEndFrameIndex}
+                          motionZoneMode={motionZoneMode}
+                          onMotionZoneModeChange={setMotionZoneMode}
+                          selectedPhotoCameraPreset={selectedPhotoCameraPreset}
+                          onSelectPhotoCameraPreset={(presetId) => setSelectedPhotoCameraPreset(presetId)}
+                          onEnhancePhoto4K={handleEnhancePhoto4K}
+                          isEnhancingPhoto4K={isEnhancingPhoto4K}
+                          onAnalyzePhotoMotion={handleAnalyzePhotoMotion}
+                          isAnalyzingPhotoMotion={isAnalyzingPhotoMotion}
+                          soundscapeConfig={soundscapeConfig}
+                          onSoundscapeConfigChange={setSoundscapeConfig}
+                          viralCaptions={viralCaptions}
+                          onViralCaptionsChange={setViralCaptions}
+                          onGenerate={(croppedStartUrl, croppedEndUrl) =>
+                            handleGenerate(croppedStartUrl, undefined, undefined, croppedEndUrl)
+                          }
                           isGenerating={isGenerating}
                           generationProgress={generationProgress}
                           liveCreditCost={liveCreditCost}
@@ -1585,6 +2188,60 @@ export default function App() {
                       ))}
                     </div>
                   </div>
+
+                  {/* 6 NEW WORLD-CLASS TEXT-TO-VIDEO ENHANCEMENTS SUITE */}
+                  <TextToVideoPowerSuite
+                    prompt={prompt}
+                    onPromptChange={setPrompt}
+                    aspectRatio={selectedRatio}
+                    selectedModelName={FAL_MODELS[selectedModel].name}
+                    baseVideoCreditCost={baseVideoCreditCost}
+                    userCredits={user?.credits || 0}
+                    draftFrames={draftFrames}
+                    selectedDraftFrameIndex={selectedDraftFrameIndex}
+                    isGeneratingKeyframe={isGeneratingKeyframe}
+                    onGenerateDraftKeyframe={handleGenerateDraftKeyframe}
+                    onSelectDraftFrame={setSelectedDraftFrameIndex}
+                    onUseFrameAndGenerateVideo={handleUseFrameAndGenerateVideo}
+                    onResetDraftFrames={() => {
+                      setDraftFrames([]);
+                      setSelectedDraftFrameIndex(0);
+                    }}
+                    isStoryboardMode={isStoryboardMode}
+                    onToggleStoryboardMode={setIsStoryboardMode}
+                    storyIdea={storyIdea}
+                    onStoryIdeaChange={setStoryIdea}
+                    storyboardScenes={storyboardScenes}
+                    onUpdateStoryboardScene={(sceneNum, newPrompt) =>
+                      setStoryboardScenes((prev) =>
+                        prev.map((s) => (s.sceneNumber === sceneNum ? { ...s, prompt: newPrompt } : s))
+                      )
+                    }
+                    isSplittingStory={isSplittingStory}
+                    onSplitStoryToScenes={handleSplitStoryToScenes}
+                    isGeneratingStoryboard={isGeneratingStoryboard}
+                    onGenerateAllStoryboardScenes={handleGenerateAllStoryboardScenes}
+                    onGenerateSingleStoryboardScene={handleGenerateSingleStoryboardScene}
+                    onPlayStoryboardSceneInPlayer={(scene) => {
+                      if (scene.videoUrl) {
+                        setActiveStoryboardScene(scene.sceneNumber);
+                        setCurrentVideo((prev) => ({
+                          ...prev,
+                          title: `Scene #${scene.sceneNumber}: ${scene.title}`,
+                          prompt: scene.prompt,
+                          video_url: scene.videoUrl!,
+                        }));
+                      }
+                    }}
+                    characterLock={characterLock}
+                    onCharacterLockChange={setCharacterLock}
+                    selectedCameraMotion={selectedCameraMotion}
+                    onSelectCameraMotion={(cam) => setSelectedCameraMotion(cam.id)}
+                    soundscapeConfig={soundscapeConfig}
+                    onSoundscapeConfigChange={setSoundscapeConfig}
+                    viralCaptions={viralCaptions}
+                    onViralCaptionsChange={setViralCaptions}
+                  />
                     </div>
                     )}
 
@@ -1686,7 +2343,7 @@ export default function App() {
                               }`}>
                                 <span className={`mono font-black text-xs ${isSelected ? 'text-white' : 'text-purple-300'}`}>{baseCost}cr</span>
                                 <span className={`text-[9px] font-mono ${isSelected ? 'text-white/90 font-bold' : 'text-emerald-400'}`}>
-                                  ₹{Math.round(baseCost * 0.7)}
+                                  ₹{INR_MAPPING[mKey]?.[selectedDuration] || Math.round(baseCost * 0.66)}
                                 </span>
                               </div>
                             </div>
@@ -1775,7 +2432,7 @@ export default function App() {
                               }`}>
                                 <span className={`mono font-black text-xs ${isSelected ? 'text-white' : 'text-purple-300'}`}>{baseCost}cr</span>
                                 <span className={`text-[9px] font-mono ${isSelected ? 'text-white/90 font-bold' : 'text-emerald-400'}`}>
-                                  ₹{Math.round(baseCost * 0.7)}
+                                  ₹{INR_MAPPING[mKey]?.[selectedDuration] || Math.round(baseCost * 0.66)}
                                 </span>
                               </div>
                             </div>
@@ -1833,6 +2490,32 @@ export default function App() {
                       );
                     })}
                   </div>
+
+                  {/* Compact Low Balance Alert directly under Model + Duration selector */}
+                  {(user?.credits ?? 0) < baseVideoCreditCost && (
+                    <div className="mt-2.5 p-2.5 rounded-xl low-balance-amber-pulse-card flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center gap-2 text-amber-200">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+                        <span>
+                          <strong className="text-amber-300">Low Balance:</strong>{' '}
+                          {FAL_MODELS[selectedModel].name} ({selectedDuration}) requires{' '}
+                          <strong className="text-white mono">{baseVideoCreditCost}cr</strong> (You have{' '}
+                          <strong className="text-amber-300 mono">{user?.credits ?? 0}cr</strong>).
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreselectedPlanId('pro');
+                          setInsufficientCreditTrigger(true);
+                          setIsCreditModalOpen(true);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-black font-black text-[10px] mono uppercase tracking-wide transition-all cursor-pointer shrink-0 shadow-sm"
+                      >
+                        ⚡ Quick Top-Up
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* 5. Aspect Ratio Buttons with Quality Lock Rule */}
@@ -1878,32 +2561,105 @@ export default function App() {
                   videoPrompt={prompt}
                 />
 
-                {/* 6. Generate Action Button */}
-                <div className="space-y-3 pt-2">
-                  {/* Pay-to-Generate Free Preview Notice when credits are 0 or insufficient */}
-                  {isFreeUser && (user?.credits || 0) < liveCreditCost && (
+                {/* 6. Generate Action Button & Low Balance Warning Overlay */}
+                <div className="space-y-3 pt-2 relative">
+                  {/* Low Balance Warning Overlay inside the Generator Bar with subtle breathing animation & pulsing amber gradient border */}
+                  {(user?.credits ?? 0) < liveCreditCost && (
                     <div
-                      onClick={() => {
-                        setInsufficientCreditTrigger(true);
-                        setIsCreditModalOpen(true);
-                      }}
-                      className="cursor-pointer p-3 rounded-2xl bg-gradient-to-r from-purple-950/60 to-indigo-950/60 border border-purple-500/30 hover:border-purple-400/50 flex items-center justify-between gap-3 text-xs transition-all shadow-md"
+                      id="generator-low-balance-overlay"
+                      className="relative overflow-hidden rounded-2xl low-balance-amber-pulse-card p-4 space-y-3"
                     >
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-                        <span className="text-white/80 text-[11px]">
-                          <strong>Free Preview Active:</strong> Top up to run fresh AI generations.
-                        </span>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0 mt-0.5">
+                            <Coins className="w-4 h-4 text-amber-300" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-xs font-black uppercase tracking-wider text-amber-300 mono">
+                                ⚠️ Low Credit Balance
+                              </span>
+                              <span className="text-[10px] mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
+                                Short by {Math.max(1, liveCreditCost - (user?.credits ?? 0))} Cr
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-white/80 leading-relaxed">
+                              Your selected{' '}
+                              <strong className="text-white">
+                                {FAL_MODELS[selectedModel].name} ({selectedDuration})
+                              </strong>
+                              {liveCreditCost > baseVideoCreditCost ? ' + Pro Add-ons' : ''} requires{' '}
+                              <strong className="text-amber-300 mono">
+                                {liveCreditCost} Credits (₹{inrEstimate})
+                              </strong>
+                              , but your balance is{' '}
+                              <strong className="text-white mono">{user?.credits ?? 0} Credits</strong>.
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 mono font-bold shrink-0">
-                        ₹99 Trial Pack ⚡
-                      </span>
+
+                      {/* Credit Progress Comparison Bar */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[10px] mono">
+                          <span className="text-white/60">
+                            Available: <strong className="text-amber-300">{user?.credits ?? 0} Cr</strong>
+                          </span>
+                          <span className="text-white/60">
+                            Required: <strong className="text-purple-300">{liveCreditCost} Cr</strong>
+                          </span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-black/60 overflow-hidden border border-white/10">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-500 to-rose-500 transition-all duration-300 rounded-full"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(6, Math.round(((user?.credits ?? 0) / Math.max(1, liveCreditCost)) * 100))
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Action Buttons inside Overlay */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                        {(user?.credits ?? 0) >= 15 &&
+                        (selectedModel !== 'ltx' || selectedDuration !== '5s') ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedModel('ltx');
+                              setSelectedDuration('5s');
+                            }}
+                            className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-[11px] text-white/85 hover:text-white mono font-semibold transition-all cursor-pointer"
+                          >
+                            Switch to LTX 5s (15 Cr)
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-amber-200/80 mono">
+                            ⚡ Instant packs start at ₹99 (150 Credits)
+                          </span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInsufficientCreditTrigger(true);
+                            setIsCreditModalOpen(true);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:from-amber-300 hover:to-pink-400 text-black font-black text-xs mono uppercase tracking-wide flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all cursor-pointer active:scale-95 ml-auto"
+                        >
+                          <Zap className="w-3.5 h-3.5 fill-black text-black" />
+                          <span>Top Up Credits (+150 Cr • ₹99)</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 
                   <button
                     type="button"
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate()}
                     disabled={isGenerating}
                     className={`w-full font-bold py-4 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2.5 text-sm transition-all active:scale-[0.99] disabled:opacity-60 ${
                       (user?.credits || 0) < liveCreditCost
@@ -1920,7 +2676,7 @@ export default function App() {
                       <>
                         <Sparkles className="w-4 h-4 fill-amber-300 text-amber-300" />
                         <span>
-                          Generate Video (-{liveCreditCost}cr • Requires Credit Pack)
+                          Generate Video (-{liveCreditCost}cr • Requires Credit Top-Up)
                         </span>
                         <ArrowRight className="w-4 h-4 opacity-70" />
                       </>
@@ -1975,7 +2731,7 @@ export default function App() {
                             setInsufficientCreditTrigger(true);
                             setIsCreditModalOpen(true);
                           }}
-                          className="text-amber-300 hover:text-amber-200 underline"
+                          className="text-amber-300 hover:text-amber-200 underline font-bold cursor-pointer"
                         >
                           Unlock with ₹99 Pack
                         </button>
@@ -2035,13 +2791,53 @@ export default function App() {
                     {/* AI Upscale 2x Toggle Button */}
                     <button
                       type="button"
-                      onClick={() => setIsAiUpscaleActive((prev) => !prev)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs mono transition-all border ${
+                      onClick={async () => {
+                        if (isAiUpscaleActive) {
+                          setIsAiUpscaleActive(false);
+                          return;
+                        }
+                        if (!user || (user.credits || 0) < 25) {
+                          setInsufficientCreditTrigger(true);
+                          setIsCreditModalOpen(true);
+                          showGlobalNotice('⚡ AI 4K Upscaling requires 25 credits. Please top up your wallet!');
+                          return;
+                        }
+                        try {
+                          const res = await fetch('/api/upscale', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              videoUrl: currentVideo.video_url,
+                              email: user.email,
+                              userId: user.id,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) {
+                            if (res.status === 402) {
+                              setInsufficientCreditTrigger(true);
+                              setIsCreditModalOpen(true);
+                            }
+                            showGlobalNotice(data.error || 'Upscaling failed.');
+                            return;
+                          }
+                          if (data.remainingCredits !== undefined) {
+                            const updated = { ...user, credits: data.remainingCredits };
+                            setUser(updated);
+                            localStorage.setItem('nexverze_studio_user', JSON.stringify(updated));
+                          }
+                          setIsAiUpscaleActive(true);
+                          showGlobalNotice('✨ 4K UHD AI Upscale activated (25 credits applied)!');
+                        } catch {
+                          showGlobalNotice('Network error while connecting to 4K AI Upscaler.');
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs mono transition-all border cursor-pointer ${
                         isAiUpscaleActive
                           ? 'bg-gradient-to-r from-purple-900/60 to-cyan-900/60 border-cyan-400 text-cyan-200 shadow-md shadow-cyan-900/40 ring-1 ring-cyan-400/40'
                           : 'bg-[#121217] border-[#27272a] hover:border-purple-500/40 text-white/70 hover:text-white'
                       }`}
-                      title="AI Upscale: Apply .ai-upscale-2x-active crisp filter and .ai-upscale-sheen overlay for 4K super-resolution"
+                      title="AI Upscale (25cr): Apply 4K super-resolution sharpening & chromatic sheen"
                     >
                       <Sparkles className={`w-3.5 h-3.5 ${isAiUpscaleActive ? 'text-cyan-300 fill-cyan-300 animate-pulse' : 'text-purple-400'}`} />
                       <span className="font-semibold">AI Upscale</span>
@@ -2052,7 +2848,7 @@ export default function App() {
                             : 'bg-white/10 text-white/40'
                         }`}
                       >
-                        {isAiUpscaleActive ? '4K UHD' : '2x'}
+                        {isAiUpscaleActive ? '4K UHD' : '25cr'}
                       </span>
                     </button>
 
@@ -2110,6 +2906,21 @@ export default function App() {
                     }));
                   }}
                   onRemix={handleRemixVideo}
+                  viralCaptions={viralCaptions}
+                  soundscapeConfig={soundscapeConfig}
+                  storyboardPlaylist={isStoryboardMode ? storyboardScenes : undefined}
+                  activeStoryboardScene={activeStoryboardScene}
+                  onSelectStoryboardScene={(scene) => {
+                    if (scene.videoUrl) {
+                      setActiveStoryboardScene(scene.sceneNumber);
+                      setCurrentVideo((prev) => ({
+                        ...prev,
+                        title: `Scene #${scene.sceneNumber}: ${scene.title}`,
+                        prompt: scene.prompt,
+                        video_url: scene.videoUrl!,
+                      }));
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -2167,7 +2978,7 @@ export default function App() {
 
       {/* Main Heading */}
       <h2 className="text-lg sm:text-xl lg:text-2xl font-black text-white tracking-tight flex flex-wrap items-center gap-2">
-        <span>Create 3 Cinematic Videos for</span>
+        <span>Create up to 10 AI Videos for</span>
         <span className="galaxy-text font-black text-xl sm:text-2xl">just ₹99</span>
         <span className="text-white/40 hidden sm:inline">•</span>
         <span className="text-amber-300 font-semibold text-sm sm:text-base">
@@ -2177,7 +2988,7 @@ export default function App() {
 
       {/* High-Intent Value Proposition */}
       <p className="text-xs sm:text-[13px] text-white/80 leading-relaxed max-w-2xl">
-        Get <strong className="text-amber-300 font-mono">150 Credits for ₹99</strong> (generate 3 Luma Ray 3 videos OR 1 Kling v2.5 Turbo video). Switch freely between <strong>Luma Ray 3, Kling Pro, and Google Veo 3.1</strong> from one shared wallet. Top up once, create anytime with zero monthly expiration trap.
+        Get <strong className="text-amber-300 font-mono">150 Credits for ₹99</strong> (generate 10 LTX Fast videos, 2 Luma Ray 3 videos, OR 1 Kling v2.5 Turbo video). Switch freely between <strong>Luma Ray 3, Kling Pro, and Google Veo 3.1</strong> from one shared wallet. Top up once, create anytime with zero monthly expiration trap.
       </p>
 
       {/* Feature Checklist */}
@@ -2250,7 +3061,11 @@ export default function App() {
               setPrompt(p);
               setSelectedModel((m === 'veo3' ? 'veo' : m) as ModelType);
               setSelectedRatio(r);
-              navigateToView('studio');
+              setHomeStudioTab('generator');
+              setActiveStudioTab('text');
+              setIsStudioExpanded(true);
+              navigateToView('studioApp');
+              showGlobalNotice('✨ Loaded liked prompt into Studio workspace!');
             }}
             onNavigateToHome={() => {
               navigateToView('studio');
@@ -2258,7 +3073,7 @@ export default function App() {
                 document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
               }, 120);
             }}
-            onNavigateToStudio={() => navigateToView('studio')}
+            onNavigateToStudio={() => navigateToView('studioApp')}
             onOpenSqlTab={() => navigateToView('sql')}
           />
         )}
@@ -2341,11 +3156,13 @@ export default function App() {
           setIsCreditModalOpen(false);
           setInsufficientCreditTrigger(false);
           setAutoTriggerCheckout(false);
+          setPreselectedPlanId(null);
         }}
         user={user}
         requiredCredits={liveCreditCost}
         insufficientWarning={insufficientCreditTrigger}
         autoTriggerCheckout={autoTriggerCheckout}
+        initialPlanId={preselectedPlanId}
         onCreditsUpdated={(updated) => {
           setUser(updated);
           setAutoTriggerCheckout(false);
@@ -2396,7 +3213,11 @@ export default function App() {
       <WelcomeCreditsModal
         onStartCreating={() => {
           const el = document.getElementById('studio-prompt-textarea');
-          if (el) el.focus();
+          if (el) {
+            el.focus();
+          } else {
+            document.getElementById('showcase-gallery')?.scrollIntoView({ behavior: 'smooth' });
+          }
         }}
         onClaimTrialPack={() => {
           setInsufficientCreditTrigger(false);

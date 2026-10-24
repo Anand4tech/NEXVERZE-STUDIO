@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { StudioUser } from '../lib/supabase';
-import { Sparkles, Coins, Layers, LogOut, Globe, ChevronDown, Check, UploadCloud, RotateCcw, Heart, Film } from 'lucide-react';
+import { Sparkles, Coins, Layers, LogOut, Globe, ChevronDown, Check, UploadCloud, RotateCcw, Heart, Film, Zap } from 'lucide-react';
 import { useLanguage, SUPPORTED_LANGUAGES } from '../context/LanguageContext';
 import { NexVerzeLogo } from './NexVerzeLogo';
 import { getLocalFavorites, subscribeFavorites } from '../lib/favoritesStorage';
@@ -10,6 +10,7 @@ interface HeaderProps {
   activeView: 'studio' | 'studioApp' | 'history' | 'favorites' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact';
   setActiveView: (view: 'studio' | 'studioApp' | 'history' | 'favorites' | 'sql' | 'privacy' | 'terms' | 'refund' | 'contact') => void;
   onOpenCreditModal: () => void;
+  onQuickBuyPopular?: () => void;
   onOpenAuthModal: () => void;
   onOpenZipModal: () => void;
   onOpenSequenceBuilder?: () => void;
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeView,
   setActiveView,
   onOpenCreditModal,
+  onQuickBuyPopular,
   onOpenAuthModal,
   onOpenZipModal,
   onOpenSequenceBuilder,
@@ -205,31 +207,43 @@ export const Header: React.FC<HeaderProps> = ({
             </>
           )}
 
-          {/* Credits Balance Pill */}
-          <button
-            onClick={onOpenCreditModal}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-[11px] sm:text-xs mono transition-all cursor-pointer ${
-              (user?.credits || 0) > 0
-                ? 'border-emerald-500/40 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'
-                : 'border-purple-500/30 bg-purple-950/40 text-purple-200 hover:bg-purple-900/40 ring-1 ring-purple-500/20'
-            }`}
-            title="Buy / Manage Credits & Verified Grants"
-          >
-            <Coins className="w-3 h-3 text-purple-400 shrink-0" />
-            <span className="font-semibold">{user ? user.credits : 0} cr</span>
-            
-            {/* Pro badge next to credit balance for positive reinforcement & status */}
-            {user && (user.is_pro || (user.credits || 0) > 0 || user.email === 'anand4earn@gmail.com') ? (
-              <span className="text-[9px] font-black tracking-wide uppercase px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-400 via-purple-500 to-pink-500 text-white shadow-xs pro-badge-glow flex items-center gap-0.5">
-                <Sparkles className="w-2.5 h-2.5 fill-amber-300 text-amber-200" />
-                <span>PRO</span>
-              </span>
-            ) : (user?.credits || 0) === 0 ? (
-              <span className="text-[10px] bg-purple-500/30 text-purple-200 px-1.5 py-0.2 rounded-full border border-purple-400/20">
-                Preview
-              </span>
-            ) : null}
-          </button>
+          {/* Credits Balance Pill + Quick Buy Button Group */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={onOpenCreditModal}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border text-[11px] sm:text-xs mono transition-all cursor-pointer ${
+                (user?.credits || 0) > 0
+                  ? 'border-emerald-500/40 bg-emerald-950/40 text-emerald-200 hover:bg-emerald-900/40'
+                  : 'border-purple-500/30 bg-purple-950/40 text-purple-200 hover:bg-purple-900/40 ring-1 ring-purple-500/20'
+              }`}
+              title="Buy / Manage Credits & Verified Grants"
+            >
+              <Coins className="w-3 h-3 text-purple-400 shrink-0" />
+              <span className="font-semibold">{user ? user.credits : 0} cr</span>
+              
+              {/* Pro badge next to credit balance for positive reinforcement & status */}
+              {user && (user.is_pro || (user.credits || 0) > 0 || user.email === 'anand4earn@gmail.com') ? (
+                <span className="text-[9px] font-black tracking-wide uppercase px-1.5 py-0.5 rounded-md bg-gradient-to-r from-amber-400 via-purple-500 to-pink-500 text-white shadow-xs pro-badge-glow flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5 fill-amber-300 text-amber-200" />
+                  <span>PRO</span>
+                </span>
+              ) : (user?.credits || 0) === 0 ? (
+                <span className="text-[10px] bg-purple-500/30 text-purple-200 px-1.5 py-0.2 rounded-full border border-purple-400/20">
+                  Preview
+                </span>
+              ) : null}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => (onQuickBuyPopular ? onQuickBuyPopular() : onOpenCreditModal())}
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 hover:from-amber-300 hover:to-pink-400 text-slate-950 font-extrabold text-[11px] sm:text-xs mono shadow-md shadow-amber-500/20 hover:shadow-amber-500/35 transition-all cursor-pointer active:scale-95 shrink-0"
+              title="Quick Buy: Open Top-Up Modal pre-selected with Most Popular PRO STUDIO Pack (+1,300 Credits)"
+            >
+              <Zap className="w-3 h-3 fill-slate-950 text-slate-950 shrink-0" />
+              <span>Quick Buy</span>
+            </button>
+          </div>
 
           {/* Language Selector Dropdown */}
           <div className="relative">
@@ -335,28 +349,37 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile nav sub-bar */}
       <div className="flex md:hidden items-center justify-around border-t border-white/[0.04] mt-2 pt-2 px-2 mono text-[11px]">
-        <a href="/" className="text-white/60 py-1 px-2">
-          Home
-        </a>
         <button
+          type="button"
           onClick={() => setActiveView('studio')}
-          className={`py-1 px-2 rounded-full ${
+          className={`py-1 px-2 rounded-full cursor-pointer ${
             activeView === 'studio' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
+          }`}
+        >
+          Home
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('studioApp')}
+          className={`py-1 px-2 rounded-full cursor-pointer ${
+            activeView === 'studioApp' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
           }`}
         >
           Studio
         </button>
         <button
+          type="button"
           onClick={() => setActiveView('history')}
-          className={`py-1 px-2 rounded-full ${
+          className={`py-1 px-2 rounded-full cursor-pointer ${
             activeView === 'history' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
           }`}
         >
           History
         </button>
         <button
+          type="button"
           onClick={() => setActiveView('favorites')}
-          className={`py-1 px-2 rounded-full flex items-center gap-1 ${
+          className={`py-1 px-2 rounded-full flex items-center gap-1 cursor-pointer ${
             activeView === 'favorites' ? 'bg-rose-600/30 text-rose-300 font-bold border border-rose-500/30' : 'text-white/60'
           }`}
         >
@@ -364,7 +387,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Favs</span>
           {favoritesCount > 0 && <span className="text-[9px] text-rose-300">({favoritesCount})</span>}
         </button>
-        <button onClick={onOpenZipModal} className="text-emerald-400 py-1 px-2 font-bold">
+        <button type="button" onClick={onOpenZipModal} className="text-emerald-400 py-1 px-2 font-bold cursor-pointer">
           Export
         </button>
       </div>

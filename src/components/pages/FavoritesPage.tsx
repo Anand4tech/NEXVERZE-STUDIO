@@ -406,6 +406,13 @@ CREATE POLICY "Allow anon read/write favorite_videos" ON favorite_videos FOR ALL
             duration={activeVideo.duration || '10s'}
             timestamp={activeVideo.favorited_at}
             prompt={activeVideo.prompt}
+            onRemix={() => {
+              onSelectPrompt?.(
+                activeVideo.prompt,
+                (activeVideo.model === 'veo' ? 'veo3' : activeVideo.model) as any,
+                (activeVideo.aspect_ratio || '9:16') as any
+              );
+            }}
           />
         </div>
       )}

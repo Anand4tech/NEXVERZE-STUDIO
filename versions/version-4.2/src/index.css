@@ -1,0 +1,269 @@
+@import "tailwindcss";
+
+@layer base {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0a0a12;
+    color: #f4f4f5;
+  }
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.galaxy-text {
+  background: linear-gradient(100deg, #ffffff 20%, #a78bfa 60%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.purple-glow {
+  box-shadow: 0 0 25px rgba(139, 92, 246, 0.25);
+}
+
+.card-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover:hover {
+  border-color: rgba(139, 92, 246, 0.45);
+  transform: translateY(-2px);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a12;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Frame Smoothing (Motion Interpolation Simulation) */
+.frame-smoothing-active {
+  filter: contrast(1.02) saturate(1.03) blur(0.45px);
+  image-rendering: auto;
+  transform: translateZ(0);
+  will-change: filter, transform;
+}
+
+/* 2x AI Upscale Super-Resolution Cinema Filter */
+.ai-upscale-2x-active {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  filter: contrast(1.06) saturate(1.05) brightness(1.02);
+  transform: translateZ(0);
+  will-change: filter, transform;
+}
+
+@keyframes upscaleSheen {
+  0% {
+    box-shadow: inset 0 0 15px rgba(168, 85, 247, 0.25);
+  }
+  50% {
+    box-shadow: inset 0 0 30px rgba(56, 189, 248, 0.35);
+  }
+  100% {
+    box-shadow: inset 0 0 15px rgba(168, 85, 247, 0.25);
+  }
+}
+
+.ai-upscale-sheen {
+  animation: upscaleSheen 3s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes frameInterpolationShimmer {
+  0%, 100% {
+    backdrop-filter: blur(0.6px) brightness(1.01);
+    opacity: 0.35;
+  }
+  50% {
+    backdrop-filter: blur(0.3px) brightness(0.99);
+    opacity: 0.20;
+  }
+}
+
+.frame-interpolation-overlay {
+  animation: frameInterpolationShimmer 0.12s infinite ease-in-out;
+  pointer-events: none;
+}
+
+/* User-Specified Logo & Brand Header Styles */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  background-color: transparent;
+}
+
+.logo-icon {
+  height: 60px;
+  width: auto;
+  mix-blend-mode: screen;
+  object-fit: contain;
+}
+
+.logo-text {
+  height: 40px;
+  width: auto;
+  mix-blend-mode: screen;
+  object-fit: contain;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.animate-blink-dot {
+  animation: blink 1.2s infinite;
+}
+
+/* Subtle float animation for ₹99 Trial Pack Banner to increase visual prominence & CTR */
+@keyframes floatSubtle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float-subtle {
+  animation: floatSubtle 4s ease-in-out infinite;
+}
+
+/* Pro Badge Glow */
+.pro-badge-glow {
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.45), 0 0 4px rgba(236, 72, 153, 0.3);
+}
+
+/* Glowing pulse animation on Live Output Preview player frame during generation */
+@keyframes playerGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.35), 0 0 50px rgba(139, 92, 246, 0.2), inset 0 0 20px rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.65);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(236, 72, 153, 0.55), 0 0 80px rgba(168, 85, 247, 0.35), inset 0 0 35px rgba(236, 72, 153, 0.25);
+    border-color: rgba(236, 72, 153, 0.85);
+  }
+}
+
+.animate-player-generating {
+  animation: playerGlowPulse 2.2s ease-in-out infinite;
+}
+
+/* Heart burst and float animation for Showcase Gallery cards */
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.35) rotate(-6deg); }
+  50% { transform: scale(0.92) rotate(3deg); }
+  75% { transform: scale(1.18); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes heartFloatUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(0.8);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateY(-24px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-44px) scale(0.6);
+  }
+}
+
+.animate-heart-pop {
+  animation: heartPop 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-float-heart {
+  animation: heartFloatUp 1.1s ease-out forwards;
+}
+
+/* Remix Prompt & Model Parameters Upward Float Micro-Animation */
+@keyframes remixTokenFloatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.04);
+  }
+  75% {
+    opacity: 0.95;
+    transform: translateY(-58px) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-95px) scale(0.85);
+  }
+}
+
+@keyframes generatorReceivePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 70, 239, 0.7), 0 0 30px rgba(168, 85, 247, 0.5), inset 0 0 20px rgba(217, 70, 239, 0.25);
+    border-color: rgba(232, 121, 249, 0.95);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(217, 70, 239, 0), 0 0 55px rgba(236, 72, 153, 0.65), inset 0 0 28px rgba(168, 85, 247, 0.35);
+    border-color: rgba(251, 191, 36, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 70, 239, 0), 0 0 0 rgba(168, 85, 247, 0);
+  }
+}
+
+.animate-remix-token-up {
+  animation: remixTokenFloatUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-generator-receive {
+  animation: generatorReceivePulse 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Showcase Gallery Card Hover Scale & Luminous Border-Glow */
+.showcase-card-interactive {
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, box-shadow, border-color;
+}
+
+.showcase-card-interactive:hover {
+  transform: translateY(-4px) scale(1.018);
+  border-color: rgba(192, 132, 252, 0.78);
+  box-shadow:
+    0 0 0 1px rgba(192, 132, 252, 0.45),
+    0 0 26px rgba(168, 85, 247, 0.38),
+    0 14px 34px -8px rgba(217, 70, 239, 0.28);
+}
+
+

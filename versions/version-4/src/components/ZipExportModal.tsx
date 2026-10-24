@@ -83,9 +83,9 @@ export const ZipExportModal: React.FC<ZipExportModalProps> = ({ isOpen, onClose 
           </div>
           <div>
             <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
-              <span>NexVerze Studio — Version 2.1</span>
+              <span>NexVerze Studio — Version 4.0</span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-mono px-2 py-0.5 rounded border border-emerald-500/30">
-                SAVED SNAPSHOT v2.1
+                SAVED SNAPSHOT v4.0
               </span>
             </h3>
             <p className="text-xs text-white/50 mono mt-0.5">
@@ -97,14 +97,14 @@ export const ZipExportModal: React.FC<ZipExportModalProps> = ({ isOpen, onClose 
         {/* Info card */}
         <div className="bg-[#121217] border border-[#27272a] rounded-2xl p-4 text-xs space-y-2 mb-5">
           <div className="flex items-center justify-between text-white/80 font-semibold">
-            <span>Version 2.1 Saved State Includes:</span>
-            <span className="mono text-purple-300">v2.1.0</span>
+            <span>Version 4.0 Saved State Includes:</span>
+            <span className="mono text-purple-300">v4.0.0</span>
           </div>
           <ul className="space-y-1 text-white/60 list-disc list-inside text-[11px] mono">
-            <li>Original Quality (Crystal-Clear Unfiltered) Hero Theater Cinema Frame</li>
+            <li>Colorful Header Badge & Hero Theatre with Bottom Studio Action Bar</li>
+            <li>Colorful Feature Highlights & Headline Below Hero Theatre</li>
             <li>30-Day AI Engine Usage Breakdown chart in Dashboard, History & Wallet</li>
-            <li>Showcase Gallery card hover scale & purple/indigo border-glow animation</li>
-            <li>Dedicated workspaces inside Text/Image/Mobile/Watermark buttons</li>
+            <li>6 Calibrated AI Video Engines (LTX, Luma Ray 3, Wan 2.1, Hunyuan, Kling Pro, Veo 3.1)</li>
             <li>Mobile touch gestures (Single-tap Play/Pause, 2× Tap Audio, Swipe Volume)</li>
             <li>Showcase Gallery Remix Prompt floating micro-animation</li>
           </ul>
@@ -176,7 +176,7 @@ git push -u origin main --force
               <span>github.com/Anand4tech/nexverze-studio</span>
               <ExternalLink className="w-3 h-3" />
             </a>
-            <span className="mono text-[10px]">Saved State: Version 2.1.0</span>
+            <span className="mono text-[10px]">Saved State: Version 4.0.0</span>
           </div>
         </div>
       </div>

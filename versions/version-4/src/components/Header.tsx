@@ -335,28 +335,37 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile nav sub-bar */}
       <div className="flex md:hidden items-center justify-around border-t border-white/[0.04] mt-2 pt-2 px-2 mono text-[11px]">
-        <a href="/" className="text-white/60 py-1 px-2">
-          Home
-        </a>
         <button
+          type="button"
           onClick={() => setActiveView('studio')}
-          className={`py-1 px-2 rounded-full ${
+          className={`py-1 px-2 rounded-full cursor-pointer ${
             activeView === 'studio' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
+          }`}
+        >
+          Home
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView('studioApp')}
+          className={`py-1 px-2 rounded-full cursor-pointer ${
+            activeView === 'studioApp' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
           }`}
         >
           Studio
         </button>
         <button
+          type="button"
           onClick={() => setActiveView('history')}
-          className={`py-1 px-2 rounded-full ${
+          className={`py-1 px-2 rounded-full cursor-pointer ${
             activeView === 'history' ? 'bg-purple-600/30 text-purple-300 font-semibold' : 'text-white/60'
           }`}
         >
           History
         </button>
         <button
+          type="button"
           onClick={() => setActiveView('favorites')}
-          className={`py-1 px-2 rounded-full flex items-center gap-1 ${
+          className={`py-1 px-2 rounded-full flex items-center gap-1 cursor-pointer ${
             activeView === 'favorites' ? 'bg-rose-600/30 text-rose-300 font-bold border border-rose-500/30' : 'text-white/60'
           }`}
         >
@@ -364,7 +373,7 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Favs</span>
           {favoritesCount > 0 && <span className="text-[9px] text-rose-300">({favoritesCount})</span>}
         </button>
-        <button onClick={onOpenZipModal} className="text-emerald-400 py-1 px-2 font-bold">
+        <button type="button" onClick={onOpenZipModal} className="text-emerald-400 py-1 px-2 font-bold cursor-pointer">
           Export
         </button>
       </div>
